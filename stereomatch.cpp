@@ -35,6 +35,22 @@ static void print_help()
            "[--no-display] [-o <disparity_image>] [-p <point_cloud_file>]\n");
 }
 
+static void saveXYZ(const char* filename, const Mat& mat)
+{
+    const double max_z = 1.0e4;
+    FILE* fp = fopen(filename, "wt");
+    for(int y = 0; y < mat.rows; y++)
+    {
+        for(int x = 0; x < mat.cols; x++)
+        {
+            Vec3f point = mat.at<Vec3f>(y, x);
+            if(fabs(point[2] - max_z) < FLT_EPSILON || fabs(point[2]) > max_z) continue;
+            fprintf(fp, "%f %f %f\n", point[0], point[1], point[2]);
+        }
+    }
+    fclose(fp);
+}
+
 bool read_file(const char* filename)
 {
     FileStorage fs(filename, FileStorage::READ);
@@ -88,6 +104,20 @@ void init_parameter(Rect roi1, Rect roi2, Mat img)
     sgbm->setMode(alg == STEREO_HH ? StereoSGBM::MODE_HH : StereoSGBM::MODE_SGBM);
 }    
 
+void fillContours(Mat &bw)
+{
+    // Another option is to use dilate/erode/dilate:
+	int morph_operator = 1; // 0: opening, 1: closing, 2: gradient, 3: top hat, 4: black hat
+	int morph_elem = 2; // 0: rect, 1: cross, 2: ellipse
+	int morph_size = 3; // 2*n + 1
+    int operation = morph_operator + 2;
+
+    // Apply the specified morphology operation
+    Mat element = getStructuringElement( morph_elem, Size( 2*morph_size + 1, 2*morph_size+1 ), Point( morph_size, morph_size ) );
+    morphologyEx( bw, bw, operation, element );
+
+}    
+
 int main(int argc, char* argv[])
 {
 
@@ -103,8 +133,10 @@ int main(int argc, char* argv[])
     bool no_display = false;
     float scale = 1.f;
     bool update_bg_model = true;
+    bool open_bg_model = false;
     int FrameCount = 0;
     int Thres = 128;
+
 
 
     for( int i = 1; i < argc; i++ )
@@ -219,11 +251,12 @@ int main(int argc, char* argv[])
 
     Ptr<BackgroundSubtractor> bg_model1 =  
             createBackgroundSubtractorMOG2().dynamicCast<BackgroundSubtractor>();
-    Mat fgmask1, fgimg1, fgmask2, fgimg2;
+    Mat fgmask1, fgimg1;
     std::vector<Mat> vectorOfHSVImages;
 
     namedWindow("disparity", 0);
     createTrackbar("Threshold", "disparity", &Thres, 256, 0);
+    Mat xyz;
 
     while(1)
     {
@@ -243,24 +276,22 @@ int main(int argc, char* argv[])
         img2 = img2r;
 
         /*fg bg segment*/
-        bg_model1->apply(img1, fgmask1, update_bg_model ? -1 : 0);
-        bg_model2->apply(img2, fgmask2, update_bg_model ? -1 : 0);
+        if(open_bg_model)
+        {    
+            if(FrameCount % 3 == 0)
+                bg_model1->apply(img1, fgmask1, -1);
+            else
+                bg_model1->apply(img1, fgmask1, -1);
 
-        threshold(fgmask1, fgmask1, 0, 255, THRESH_BINARY + THRESH_OTSU);
-        erode(fgmask1, fgmask1, Mat());
-        dilate(fgmask1, fgmask1, Mat());
-        threshold(fgmask2, fgmask2, 0, 255, THRESH_BINARY + THRESH_OTSU);
-        erode(fgmask2, fgmask2, Mat());
-        dilate(fgmask2, fgmask2, Mat());
+            threshold(fgmask1, fgmask1, 0, 255, THRESH_BINARY + THRESH_OTSU);
+            erode(fgmask1, fgmask1, Mat());
+            dilate(fgmask1, fgmask1, Mat());
+            fillContours(fgmask1);
 
-        //img1 = img1 & fgmask1;
-        //img2 = img2 & fgmask2;
-
-        //imshow("foreground mask", fgmask);
-        if(FrameCount < 20)
             FrameCount++;
-        else
-            update_bg_model = false;
+            if(FrameCount > 1000)
+                FrameCount = 0;
+        }
 
         Mat disp, disp8;
         //Mat img1p, img2p, dispp;
@@ -281,12 +312,12 @@ int main(int argc, char* argv[])
         else
             disp.convertTo(disp8, CV_8U);
 
-        //Mat xyz;
-        //reprojectImageTo3D(disp, xyz, Q, true);
-        fgmask1 = fgmask1 | fgmask2;
-        disp8 = disp8 & fgmask1;
+        reprojectImageTo3D(disp, xyz, Q, true);
+        if(open_bg_model == true)
+          disp8 = disp8 & fgmask1;
         inRange(disp8, Scalar(Thres, Thres, Thres), Scalar(256, 256, 256), fgmask1);
         disp8 = disp8 & fgmask1;
+        //dilate(disp8, disp8, Mat());
         flip(disp8, disp8, 1);
 
         namedWindow("left", 1);        
@@ -306,10 +337,22 @@ int main(int argc, char* argv[])
                 update_bg_model = true;
                 FrameCount = 0;
             break;
+
+            case 'b':
+                if(open_bg_model == true)
+                    open_bg_model = false;
+                else
+                {    
+                    open_bg_model = true;
+                    update_bg_model = true;
+                    FrameCount = 0;
+                }    
             default:
             ;
         }
     }    
+    
+    saveXYZ("cloudfile", xyz);
 
     destroyAllWindows();
 
