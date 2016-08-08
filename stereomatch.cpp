@@ -2,6 +2,7 @@
 #include "opencv2/imgcodecs.hpp"
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
+#include "opencv2/video/background_segm.hpp"
 
 #include <vector>
 #include <string>
@@ -101,6 +102,8 @@ int main(int argc, char* argv[])
 
     bool no_display = false;
     float scale = 1.f;
+    bool update_bg_model = true;
+    int FrameCount = 0;
 
 
     for( int i = 1; i < argc; i++ )
@@ -209,6 +212,15 @@ int main(int argc, char* argv[])
 
     Mat img1r, img2r;
 
+    //fg bg segment
+    Ptr<BackgroundSubtractor> bg_model2 =  
+            createBackgroundSubtractorMOG2().dynamicCast<BackgroundSubtractor>();
+
+    Ptr<BackgroundSubtractor> bg_model1 =  
+            createBackgroundSubtractorMOG2().dynamicCast<BackgroundSubtractor>();
+    Mat fgmask1, fgimg1, fgmask2, fgimg2;
+    std::vector<Mat> vectorOfHSVImages;
+
     while(1)
     {
         camera0 >> img1;
@@ -225,6 +237,26 @@ int main(int argc, char* argv[])
 
         img1 = img1r;
         img2 = img2r;
+
+        /*fg bg segment*/
+        bg_model1->apply(img1, fgmask1, update_bg_model ? -1 : 0);
+        bg_model2->apply(img2, fgmask2, update_bg_model ? -1 : 0);
+
+        threshold(fgmask1, fgmask1, 0, 255, THRESH_BINARY + THRESH_OTSU);
+        erode(fgmask1, fgmask1, Mat());
+        dilate(fgmask1, fgmask1, Mat());
+        threshold(fgmask2, fgmask2, 0, 255, THRESH_BINARY + THRESH_OTSU);
+        erode(fgmask2, fgmask2, Mat());
+        dilate(fgmask2, fgmask2, Mat());
+
+        //img1 = img1 & fgmask1;
+        //img2 = img2 & fgmask2;
+
+        //imshow("foreground mask", fgmask);
+        if(FrameCount < 20)
+            FrameCount++;
+        else
+            update_bg_model = false;
 
         Mat disp, disp8;
         //Mat img1p, img2p, dispp;
@@ -247,7 +279,9 @@ int main(int argc, char* argv[])
 
         //Mat xyz;
         //reprojectImageTo3D(disp, xyz, Q, true);
-
+        fgmask1 = fgmask1 | fgmask2;
+        disp8 = disp8 & fgmask1; 
+        flip(disp8, disp8, 1);
         namedWindow("left", 1);        
         imshow("left", img1);
         namedWindow("right", 1);
@@ -257,14 +291,17 @@ int main(int argc, char* argv[])
         //namedWindow("xyz", 0);
         //imshow("xyz", xyz);
 
-        char k = waitKey(10);
-        /*if (found1 && found2)
-        {
-            k = waitKey(0);
-        }*/
-        if (k == 27)
-        {
+        char c = (char)waitKey(10);
+        if( c == 27 )
             break;
+        switch(c)
+        {
+            case 'c':
+                update_bg_model = true;
+                FrameCount = 0;
+            break;
+            default:
+            ;
         }
     }    
 
