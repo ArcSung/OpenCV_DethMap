@@ -104,6 +104,7 @@ int main(int argc, char* argv[])
     float scale = 1.f;
     bool update_bg_model = true;
     int FrameCount = 0;
+    int Thres = 128;
 
 
     for( int i = 1; i < argc; i++ )
@@ -221,6 +222,9 @@ int main(int argc, char* argv[])
     Mat fgmask1, fgimg1, fgmask2, fgimg2;
     std::vector<Mat> vectorOfHSVImages;
 
+    namedWindow("disparity", 0);
+    createTrackbar("Threshold", "disparity", &Thres, 256, 0);
+
     while(1)
     {
         camera0 >> img1;
@@ -280,13 +284,15 @@ int main(int argc, char* argv[])
         //Mat xyz;
         //reprojectImageTo3D(disp, xyz, Q, true);
         fgmask1 = fgmask1 | fgmask2;
-        disp8 = disp8 & fgmask1; 
+        disp8 = disp8 & fgmask1;
+        inRange(disp8, Scalar(Thres, Thres, Thres), Scalar(256, 256, 256), fgmask1);
+        disp8 = disp8 & fgmask1;
         flip(disp8, disp8, 1);
+
         namedWindow("left", 1);        
         imshow("left", img1);
         namedWindow("right", 1);
         imshow("right", img2);
-        namedWindow("disparity", 0);
         imshow("disparity", disp8);
         //namedWindow("xyz", 0);
         //imshow("xyz", xyz);
