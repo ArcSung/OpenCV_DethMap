@@ -1,4 +1,5 @@
 #include "opencv2/calib3d/calib3d.hpp"
+#include "opencv2/objdetect.hpp"
 #include "opencv2/imgcodecs.hpp"
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
@@ -118,6 +119,27 @@ void fillContours(Mat &bw)
 
 }    
 
+int GetDistance(int x, int y, Mat disp8)
+{
+    //get distance
+   // printf("distance %d\n", disp8.at<unsigned char>(x, y));
+   // cv::Mat_<float> vec_tmp(4,1);
+   // vec_tmp(0)=x; vec_tmp(1)=y; vec_tmp(2)=dispa8.at<float>(x,y); vec_tmp(3)=1;
+   // vec_tmp = Q*vec_tmp;
+   // vec_tmp /= vec_tmp(3);
+    //cv::Vec3f &point = XYZ.at<cv::Vec3f>(y,x);
+    //point[0] = vec_tmp(0);
+    //point[1] = vec_tmp(1);
+    //point[2] = vec_tmp(2);
+   // printf("vec_tmp(): %f, %f, %f \n", vec_tmp(0), vec_tmp(1), vec_tmp(2));
+   return (disp8.at<unsigned char>(x,y));
+}    
+
+void detectAndDraw( Mat& img, CascadeClassifier& cascade,
+                    double scale, bool tryflip , Mat disp);
+
+string cascadeName = "1.xml";
+
 int main(int argc, char* argv[])
 {
 
@@ -136,8 +158,8 @@ int main(int argc, char* argv[])
     bool open_bg_model = false;
     int FrameCount = 0;
     int Thres = 128;
-
-
+    CascadeClassifier cascade;
+    if( !cascade.load(cascadeName)){ printf("--(!)Error cascade\n"); return -1; };
 
     for( int i = 1; i < argc; i++ )
     {
@@ -293,7 +315,7 @@ int main(int argc, char* argv[])
                 FrameCount = 0;
         }
 
-        Mat disp, disp8;
+        Mat disp, disp8, disp32F;
         //Mat img1p, img2p, dispp;
         //copyMakeBorder(img1, img1p, 0, 0, numberOfDisparities, 0, IPL_BORDER_REPLICATE);
         //copyMakeBorder(img2, img2p, 0, 0, numberOfDisparities, 0, IPL_BORDER_REPLICATE);
@@ -304,11 +326,14 @@ int main(int argc, char* argv[])
         else if( alg == STEREO_SGBM || alg == STEREO_HH )
             sgbm->compute(img1, img2, disp);
         t = getTickCount() - t;
-        printf("Time elapsed: %fms\n", t*1000/getTickFrequency());
+        //printf("Time elapsed: %fms\n", t*1000/getTickFrequency());
 
         //disp = dispp.colRange(numberOfDisparities, img1p.cols);
         if( alg != STEREO_VAR )
+        {    
             disp.convertTo(disp8, CV_8U, 255/(numberOfDisparities*16.));
+            disp.convertTo(disp32F, CV_32F, 1./16);
+        }    
         else
             disp.convertTo(disp8, CV_8U);
 
@@ -320,6 +345,10 @@ int main(int argc, char* argv[])
         //dilate(disp8, disp8, Mat());
         flip(disp8, disp8, 1);
 
+        flip(img1, img1, 1);
+
+        detectAndDraw(img1, cascade, 1, false, disp8);
+
         namedWindow("left", 1);        
         imshow("left", img1);
         namedWindow("right", 1);
@@ -327,6 +356,7 @@ int main(int argc, char* argv[])
         imshow("disparity", disp8);
         //namedWindow("xyz", 0);
         //imshow("xyz", xyz);
+
 
         char c = (char)waitKey(10);
         if( c == 27 )
@@ -359,4 +389,52 @@ int main(int argc, char* argv[])
     camera0.release();
     camera1.release();
     return(0);
+}
+
+
+void detectAndDraw( Mat& img, CascadeClassifier& cascade,
+                    double scale, bool tryflip , Mat disp)
+{
+    int i = 0;
+    char str[30];
+    vector<Rect> faces, faces2;
+    const static Scalar colors[] =  { CV_RGB(0,0,255),
+        CV_RGB(0,128,255),
+        CV_RGB(0,255,255),
+        CV_RGB(0,255,0),
+        CV_RGB(255,128,0),
+        CV_RGB(255,255,0),
+        CV_RGB(255,0,0),
+        CV_RGB(255,0,255)} ;
+    Mat gray, smallImg( cvRound (img.rows/scale), cvRound(img.cols/scale), CV_8UC1 );
+
+    cvtColor( img, gray, COLOR_BGR2GRAY );
+    resize( gray, smallImg, smallImg.size(), 0, 0, INTER_LINEAR );
+    equalizeHist( smallImg, smallImg );
+
+    cascade.detectMultiScale( smallImg, faces,
+        1.1, 2, 0
+        //|CASCADE_FIND_BIGGEST_OBJECT
+        //|CASCADE_DO_ROUGH_SEARCH
+        |CASCADE_SCALE_IMAGE
+        ,
+        Size(30, 30) );
+    for( vector<Rect>::const_iterator r = faces.begin(); r != faces.end(); r++, i++ )
+    {
+        Mat smallImgROI;
+        vector<Rect> nestedObjects;
+        Point center;
+        Scalar color = colors[i%8];
+        int radius;
+        double aspect_ratio = (double)r->width/r->height;
+
+        center.x = cvRound((r->x + r->width*0.5)*scale);
+        center.y = cvRound((r->y + r->height*0.5)*scale);
+        rectangle( img, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)),
+                       cvPoint(cvRound((r->x + r->width-1)*scale), cvRound((r->y + r->height-1)*scale)),
+                       color, 3, 8, 0);
+        int dist = GetDistance(center.x, center.y, disp);
+        sprintf(str, "dist: %d", dist);
+        putText(img, str, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)), CV_FONT_HERSHEY_DUPLEX, 2, color);
+    }
 }
