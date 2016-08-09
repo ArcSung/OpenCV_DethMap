@@ -1,32 +1,8 @@
-#include "opencv2/calib3d/calib3d.hpp"
-#include "opencv2/objdetect.hpp"
-#include "opencv2/imgcodecs.hpp"
-#include "opencv2/highgui/highgui.hpp"
-#include "opencv2/imgproc/imgproc.hpp"
-#include "opencv2/video/background_segm.hpp"
-
-#include <vector>
-#include <string>
-#include <algorithm>
-#include <iostream>
-#include <iterator>
-#include <stdio.h>
-#include <stdlib.h>
-#include <ctype.h>
+#include "stereomatch.hpp"
 
 using namespace cv;
 using namespace std;
 
-/*camera parameter*/
-Mat M1, D1, M2, D2;
-Mat R, T, R1, P1, R2, P2;
-Mat map11, map12, map21, map22;
-
-Ptr<StereoBM> bm = StereoBM::create(16,9);
-Ptr<StereoSGBM> sgbm = StereoSGBM::create(0,16,3);
-int SADWindowSize = 0, numberOfDisparities = 0;
-enum { STEREO_BM=0, STEREO_SGBM=1, STEREO_HH=2, STEREO_VAR=3 };
-int alg = STEREO_SGBM;
 
 static void print_help()
 {
@@ -36,109 +12,7 @@ static void print_help()
            "[--no-display] [-o <disparity_image>] [-p <point_cloud_file>]\n");
 }
 
-static void saveXYZ(const char* filename, const Mat& mat)
-{
-    const double max_z = 1.0e4;
-    FILE* fp = fopen(filename, "wt");
-    for(int y = 0; y < mat.rows; y++)
-    {
-        for(int x = 0; x < mat.cols; x++)
-        {
-            Vec3f point = mat.at<Vec3f>(y, x);
-            if(fabs(point[2] - max_z) < FLT_EPSILON || fabs(point[2]) > max_z) continue;
-            fprintf(fp, "%f %f %f\n", point[0], point[1], point[2]);
-        }
-    }
-    fclose(fp);
-}
 
-bool read_file(const char* filename)
-{
-    FileStorage fs(filename, FileStorage::READ);
-    if(!fs.isOpened())
-    {
-        printf("Failed to open file %s\n", filename);
-        return false;
-    }
-
-    fs["M1"] >> M1;
-    fs["D1"] >> D1;
-    fs["M2"] >> M2;
-    fs["D2"] >> D2;
-    fs["R"] >> R;
-    fs["T"] >> T;
-
-    return true;
-}    
-
-void init_parameter(Rect roi1, Rect roi2, Mat img)
-{
-
-    numberOfDisparities = numberOfDisparities > 0 ? numberOfDisparities : ((img.size().width/8) + 15) & -16;
-
-    bm->setROI1(roi1);
-    bm->setROI2(roi2);
-    bm->setPreFilterCap(31);
-    bm->setBlockSize(SADWindowSize > 0 ? SADWindowSize : 9);
-    bm->setMinDisparity(0);
-    bm->setNumDisparities(numberOfDisparities);
-    bm->setTextureThreshold(10);
-    bm->setUniquenessRatio(15);
-    bm->setSpeckleWindowSize(100);
-    bm->setSpeckleRange(32);
-    bm->setDisp12MaxDiff(1);
-
-    sgbm->setPreFilterCap(63);
-    int sgbmWinSize = SADWindowSize > 0 ? SADWindowSize : 3;
-    sgbm->setBlockSize(sgbmWinSize);
-
-    int cn = img.channels();
-
-    sgbm->setP1(8*cn*sgbmWinSize*sgbmWinSize);
-    sgbm->setP2(32*cn*sgbmWinSize*sgbmWinSize);
-    sgbm->setMinDisparity(0);
-    sgbm->setNumDisparities(numberOfDisparities);
-    sgbm->setUniquenessRatio(10);
-    sgbm->setSpeckleWindowSize(100);
-    sgbm->setSpeckleRange(32);
-    sgbm->setDisp12MaxDiff(1);
-    sgbm->setMode(alg == STEREO_HH ? StereoSGBM::MODE_HH : StereoSGBM::MODE_SGBM);
-}    
-
-void fillContours(Mat &bw)
-{
-    // Another option is to use dilate/erode/dilate:
-	int morph_operator = 1; // 0: opening, 1: closing, 2: gradient, 3: top hat, 4: black hat
-	int morph_elem = 2; // 0: rect, 1: cross, 2: ellipse
-	int morph_size = 3; // 2*n + 1
-    int operation = morph_operator + 2;
-
-    // Apply the specified morphology operation
-    Mat element = getStructuringElement( morph_elem, Size( 2*morph_size + 1, 2*morph_size+1 ), Point( morph_size, morph_size ) );
-    morphologyEx( bw, bw, operation, element );
-
-}    
-
-int GetDistance(int x, int y, Mat disp8)
-{
-    //get distance
-   // printf("distance %d\n", disp8.at<unsigned char>(x, y));
-   // cv::Mat_<float> vec_tmp(4,1);
-   // vec_tmp(0)=x; vec_tmp(1)=y; vec_tmp(2)=dispa8.at<float>(x,y); vec_tmp(3)=1;
-   // vec_tmp = Q*vec_tmp;
-   // vec_tmp /= vec_tmp(3);
-    //cv::Vec3f &point = XYZ.at<cv::Vec3f>(y,x);
-    //point[0] = vec_tmp(0);
-    //point[1] = vec_tmp(1);
-    //point[2] = vec_tmp(2);
-   // printf("vec_tmp(): %f, %f, %f \n", vec_tmp(0), vec_tmp(1), vec_tmp(2));
-   return (disp8.at<unsigned char>(x,y));
-}    
-
-void detectAndDraw( Mat& img, CascadeClassifier& cascade,
-                    double scale, bool tryflip , Mat disp);
-
-string cascadeName = "1.xml";
 
 int main(int argc, char* argv[])
 {
@@ -347,7 +221,7 @@ int main(int argc, char* argv[])
 
         flip(img1, img1, 1);
 
-        detectAndDraw(img1, cascade, 1, false, disp8);
+        detectAndDraw(img1, cascade, 1, false, disp8, xyz);
 
         namedWindow("left", 1);        
         imshow("left", img1);
@@ -393,11 +267,11 @@ int main(int argc, char* argv[])
 
 
 void detectAndDraw( Mat& img, CascadeClassifier& cascade,
-                    double scale, bool tryflip , Mat disp)
+                    double scale, bool tryflip , Mat disp, Mat xyz)
 {
     int i = 0;
     char str[30];
-    vector<Rect> faces, faces2;
+    vector<Rect> faces;
     const static Scalar colors[] =  { CV_RGB(0,0,255),
         CV_RGB(0,128,255),
         CV_RGB(0,255,255),
@@ -433,8 +307,110 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
         rectangle( img, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)),
                        cvPoint(cvRound((r->x + r->width-1)*scale), cvRound((r->y + r->height-1)*scale)),
                        color, 3, 8, 0);
-        int dist = GetDistance(center.x, center.y, disp);
+        int dist = GetDistance(center.x, center.y, disp, xyz);
         sprintf(str, "dist: %d", dist);
         putText(img, str, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)), CV_FONT_HERSHEY_DUPLEX, 2, color);
     }
 }
+
+int GetDistance(int x, int y, Mat disp8, Mat xyz)
+{
+    //get distance
+   // printf("distance %d\n", disp8.at<unsigned char>(x, y));
+   // cv::Mat_<float> vec_tmp(4,1);
+   // vec_tmp(0)=x; vec_tmp(1)=y; vec_tmp(2)=dispa8.at<float>(x,y); vec_tmp(3)=1;
+   // vec_tmp = Q*vec_tmp;
+   // vec_tmp /= vec_tmp(3);
+    //cv::Vec3f &point = XYZ.at<cv::Vec3f>(y,x);
+    //point[0] = vec_tmp(0);
+    //point[1] = vec_tmp(1);
+    //point[2] = vec_tmp(2);
+   // printf("vec_tmp(): %f, %f, %f \n", vec_tmp(0), vec_tmp(1), vec_tmp(2));
+   Vec3f point = xyz.at<Vec3f>(x, y);
+   return (disp8.at<unsigned char>(x,y));
+   //return (point[3]);
+}
+
+static void saveXYZ(const char* filename, const Mat& mat)
+{
+    const double max_z = 1.0e4;
+    FILE* fp = fopen(filename, "wt");
+    for(int y = 0; y < mat.rows; y++)
+    {
+        for(int x = 0; x < mat.cols; x++)
+        {
+            Vec3f point = mat.at<Vec3f>(y, x);
+            if(fabs(point[2] - max_z) < FLT_EPSILON || fabs(point[2]) > max_z) continue;
+            fprintf(fp, "%f %f %f\n", point[0], point[1], point[2]);
+        }
+    }
+    fclose(fp);
+}
+
+bool read_file(const char* filename)
+{
+    FileStorage fs(filename, FileStorage::READ);
+    if(!fs.isOpened())
+    {
+        printf("Failed to open file %s\n", filename);
+        return false;
+    }
+
+    fs["M1"] >> M1;
+    fs["D1"] >> D1;
+    fs["M2"] >> M2;
+    fs["D2"] >> D2;
+    fs["R"] >> R;
+    fs["T"] >> T;
+
+    return true;
+}    
+
+void init_parameter(Rect roi1, Rect roi2, Mat img)
+{
+
+    numberOfDisparities = numberOfDisparities > 0 ? numberOfDisparities : ((img.size().width/8) + 15) & -16;
+
+    bm->setROI1(roi1);
+    bm->setROI2(roi2);
+    bm->setPreFilterCap(31);
+    bm->setBlockSize(SADWindowSize > 0 ? SADWindowSize : 9);
+    bm->setMinDisparity(0);
+    bm->setNumDisparities(numberOfDisparities);
+    bm->setTextureThreshold(10);
+    bm->setUniquenessRatio(15);
+    bm->setSpeckleWindowSize(100);
+    bm->setSpeckleRange(32);
+    bm->setDisp12MaxDiff(1);
+
+    sgbm->setPreFilterCap(63);
+    int sgbmWinSize = SADWindowSize > 0 ? SADWindowSize : 3;
+    sgbm->setBlockSize(sgbmWinSize);
+
+    int cn = img.channels();
+
+    sgbm->setP1(8*cn*sgbmWinSize*sgbmWinSize);
+    sgbm->setP2(32*cn*sgbmWinSize*sgbmWinSize);
+    sgbm->setMinDisparity(0);
+    sgbm->setNumDisparities(numberOfDisparities);
+    sgbm->setUniquenessRatio(10);
+    sgbm->setSpeckleWindowSize(100);
+    sgbm->setSpeckleRange(32);
+    sgbm->setDisp12MaxDiff(1);
+    sgbm->setMode(alg == STEREO_HH ? StereoSGBM::MODE_HH : StereoSGBM::MODE_SGBM);
+}    
+
+void fillContours(Mat &bw)
+{
+    // Another option is to use dilate/erode/dilate:
+	int morph_operator = 1; // 0: opening, 1: closing, 2: gradient, 3: top hat, 4: black hat
+	int morph_elem = 2; // 0: rect, 1: cross, 2: ellipse
+	int morph_size = 3; // 2*n + 1
+    int operation = morph_operator + 2;
+
+    // Apply the specified morphology operation
+    Mat element = getStructuringElement( morph_elem, Size( 2*morph_size + 1, 2*morph_size+1 ), Point( morph_size, morph_size ) );
+    morphologyEx( bw, bw, operation, element );
+
+}    
+
