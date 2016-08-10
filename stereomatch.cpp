@@ -219,6 +219,7 @@ int main(int argc, char* argv[])
         //dilate(disp8, disp8, Mat());
         flip(disp8, disp8, 1);
 
+        flip(img2, img2, 1);
         flip(img1, img1, 1);
 
         detectAndDraw(img1, cascade, scale, disp8, xyz);
@@ -280,9 +281,12 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
         CV_RGB(255,255,0),
         CV_RGB(255,0,0),
         CV_RGB(255,0,255)} ;
-    Mat gray, smallImg( cvRound (img.rows/scale), cvRound(img.cols/scale), CV_8UC1 );
+    Mat gray, mask, smallImg( cvRound (img.rows/scale), cvRound(img.cols/scale), CV_8UC1 );
 
     cvtColor( img, gray, COLOR_BGR2GRAY );
+    threshold(disp, mask, 10, 255, THRESH_BINARY);
+    dilate(mask, mask, Mat());
+    gray &= mask;
     resize( gray, smallImg, smallImg.size(), 0, 0, INTER_LINEAR );
     equalizeHist( smallImg, smallImg );
 
@@ -304,34 +308,26 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
 
         center.x = cvRound((r->x + r->width*0.5)*scale);
         center.y = cvRound((r->y + r->height*0.5)*scale);
-        int dist = GetDistance(center.x, center.y, disp, xyz);
-        if(dist > 10)
-        {    
-            rectangle( img, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)),
-                         cvPoint(cvRound((r->x + r->width-1)*scale), cvRound((r->y + r->height-1)*scale)),
-                         color, 3, 8, 0);
-            sprintf(str, "dist: %d", dist);
-            putText(img, str, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)), CV_FONT_HERSHEY_DUPLEX, 2, color);
-        }    
+        double dist = GetDistance(center.x, center.y, disp, xyz);
+        rectangle( img, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)),
+                    cvPoint(cvRound((r->x + r->width-1)*scale), cvRound((r->y + r->height-1)*scale)),
+                    color, 3, 8, 0);
+        sprintf(str, "dist: %2.2f", dist);
+        putText(img, str, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)), CV_FONT_HERSHEY_DUPLEX, 2, color);
+            
     }
 }
 
-int GetDistance(int x, int y, Mat disp8, Mat xyz)
+double GetDistance(int x, int y, Mat disp8, Mat xyz)
 {
-    //get distance
-   // printf("distance %d\n", disp8.at<unsigned char>(x, y));
-   // cv::Mat_<float> vec_tmp(4,1);
-   // vec_tmp(0)=x; vec_tmp(1)=y; vec_tmp(2)=dispa8.at<float>(x,y); vec_tmp(3)=1;
-   // vec_tmp = Q*vec_tmp;
-   // vec_tmp /= vec_tmp(3);
-    //cv::Vec3f &point = XYZ.at<cv::Vec3f>(y,x);
-    //point[0] = vec_tmp(0);
-    //point[1] = vec_tmp(1);
-    //point[2] = vec_tmp(2);
-   // printf("vec_tmp(): %f, %f, %f \n", vec_tmp(0), vec_tmp(1), vec_tmp(2));
-   Vec3f point = xyz.at<Vec3f>(x, y);
-   return (disp8.at<unsigned char>(x,y));
-   //return (point[3]);
+   double dispD = disp8.at<unsigned char>(x,y);
+   double focal = disp8.cols*0.23;
+   double between = 6.50; //the distance between 2 camera0
+
+   if(dispD !=0)
+    return (between*focal*16.0/dispD);
+   else
+    return 0;   
 }
 
 static void saveXYZ(const char* filename, const Mat& mat)

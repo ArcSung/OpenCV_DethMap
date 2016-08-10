@@ -38,7 +38,7 @@ void init_parameter(Rect roi1, Rect roi2, Mat img);
 
 void fillContours(Mat &bw);
 
-int GetDistance(int x, int y, Mat disp8, Mat xyz);
+double GetDistance(int x, int y, Mat disp8, Mat xyz);
 
 void detectAndDraw( Mat& img, CascadeClassifier& cascade,
                     double scale, Mat disp, Mat xyz);
