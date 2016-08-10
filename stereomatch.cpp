@@ -221,7 +221,7 @@ int main(int argc, char* argv[])
 
         flip(img1, img1, 1);
 
-        detectAndDraw(img1, cascade, 1, false, disp8, xyz);
+        detectAndDraw(img1, cascade, scale, disp8, xyz);
 
         namedWindow("left", 1);        
         imshow("left", img1);
@@ -267,7 +267,7 @@ int main(int argc, char* argv[])
 
 
 void detectAndDraw( Mat& img, CascadeClassifier& cascade,
-                    double scale, bool tryflip , Mat disp, Mat xyz)
+                    double scale, Mat disp, Mat xyz)
 {
     int i = 0;
     char str[30];
@@ -304,12 +304,15 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
 
         center.x = cvRound((r->x + r->width*0.5)*scale);
         center.y = cvRound((r->y + r->height*0.5)*scale);
-        rectangle( img, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)),
-                       cvPoint(cvRound((r->x + r->width-1)*scale), cvRound((r->y + r->height-1)*scale)),
-                       color, 3, 8, 0);
         int dist = GetDistance(center.x, center.y, disp, xyz);
-        sprintf(str, "dist: %d", dist);
-        putText(img, str, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)), CV_FONT_HERSHEY_DUPLEX, 2, color);
+        if(dist > 10)
+        {    
+            rectangle( img, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)),
+                         cvPoint(cvRound((r->x + r->width-1)*scale), cvRound((r->y + r->height-1)*scale)),
+                         color, 3, 8, 0);
+            sprintf(str, "dist: %d", dist);
+            putText(img, str, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)), CV_FONT_HERSHEY_DUPLEX, 2, color);
+        }    
     }
 }
 
