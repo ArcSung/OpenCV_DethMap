@@ -23,13 +23,16 @@ Mat M1, D1, M2, D2;
 Mat R, T, R1, P1, R2, P2;
 Mat map11, map12, map21, map22;
 
+CascadeClassifier cascade;
+CascadeClassifier cascade2;
+
 Ptr<StereoBM> bm = StereoBM::create(16,9);
 Ptr<StereoSGBM> sgbm = StereoSGBM::create(0,16,3);
 int SADWindowSize = 0, numberOfDisparities = 0;
 enum { STEREO_BM=0, STEREO_SGBM=1, STEREO_HH=2, STEREO_VAR=3 };
 int alg = STEREO_SGBM;
 string cascadeName = "1.xml";
-
+string cascadeName2 = "haarcascade_mcs_upperbody.xml";
 static void saveXYZ(const char* filename, const Mat& mat);
 
 bool read_file(const char* filename);
@@ -41,4 +44,34 @@ void fillContours(Mat &bw);
 double GetDistance(int x, int y, Mat disp8, Mat xyz);
 
 void detectAndDraw( Mat& img, CascadeClassifier& cascade,
-                    double scale, Mat disp, Mat xyz);
+                    double scale, Mat disp, Mat &mask);
+
+void findConnectComponent(Mat &bw, int x, int y);
+
+void findSkeleton(Mat bw);
+
+Mat findDistTran(Mat bw);
+
+void findUpperBody( Mat& img, CascadeClassifier& cascade, double scale, Rect FaceRect, Point &lShoulder, Point &rShoulder);
+
+Mat CalcuEDT(Mat DT, Point ref);
+
+Mat findSkinColor(Mat src);
+
+Point findArm(Mat EDT, Point lShoulder, int fheight, int findLeftelbow);
+
+Point findHand(Mat Skin, Point rElbow, int FWidth);
+
+class BodySkeleton
+{
+  public:
+    Point head;
+    Point neck;
+    Point lShoulder;
+    Point rShoulder;
+    Point rElbow;
+    Point lElbow;
+    Point rHand;
+    Point lHand;
+
+};
