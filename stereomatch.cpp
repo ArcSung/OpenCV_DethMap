@@ -67,6 +67,7 @@ int main(int argc, char* argv[])
     int Thres = 95;
     if( !cascade.load(cascadeName)){ printf("--(!)Error cascade\n"); return -1; };
     if( !cascade2.load(cascadeName2)){ printf("--(!)Error cascade2\n"); return -1; };
+    if( !cascade_hand.load(cascadeName3)){ printf("--(!)Error cascade3\n"); return -1; };
 
     for( int i = 1; i < argc; i++ )
     {
@@ -397,9 +398,11 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
         Size(30, 30) );
     for( vector<Rect>::const_iterator r = faces.begin(); r != faces.end(); r++, i++ )
     {
+        if(r->width < img.cols/8)
+            continue;
         BodySkeleton body_skeleton;
         Mat smallImgROI;
-        Mat DT, Skin;
+        Mat DT, Skin, dispMask = Mat::zeros(img.size(), CV_8UC1);
         Mat people = Mat::zeros(img.size(), CV_8UC3);
         vector<Rect> nestedObjects;
         Point center;
@@ -409,32 +412,30 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
 
         center.x = cvRound((r->x + r->width*0.5)*scale);
         center.y = cvRound((r->y + r->height*0.5)*scale);
-        double Dist = GetDistance(center.x, center.y, disp, mask);
+        double Dist = GetDistance(center.x, center.y, disp, mask, dispMask);
         threshold(disp, mask, 10, 255,  THRESH_BINARY);
         fillContours(mask);
-        findConnectComponent(mask, center.x, center.y);
+        //findConnectComponent(mask, center.x, center.y);
         img.copyTo(people, mask);
         Skin = findSkinColor(people);
         body_skeleton.head = Point(center.x, center.y);
         body_skeleton.neck = Point(center.x, center.y + r->height*0.6);
         body_skeleton.lShoulder = Point(0, 0);
         body_skeleton.rShoulder = Point(0, 0);
-        findUpperBody( img, cascade2, scale, Rect(r->x, r->y, r->width, r->height), body_skeleton.lShoulder, body_skeleton.rShoulder);
+        findUpperBody( img, cascade2, scale, Rect(r->x, r->y, r->width, r->height), body_skeleton);
         if(body_skeleton.lShoulder.x != 0 && body_skeleton.lShoulder.y != 0 )
         {
             DT = findDistTran(mask);
             //find right arm
             //EDT = CalcuEDT(DT, body_skeleton.rShoulder);
             body_skeleton.rElbow = findArm(DT, body_skeleton.rShoulder, r->width*0.9, 0);
-            body_skeleton.rHand = findHand(Skin, body_skeleton.rElbow, r->height*1.5);
+            body_skeleton.rHand = findHand(Skin, people, body_skeleton.rElbow, body_skeleton.head, r->height*1.5);
 
             //waitKey(0);
             //find left arm
             //EDT = CalcuEDT(DT, body_skeleton.lShoulder);
             body_skeleton.lElbow = findArm(DT, body_skeleton.lShoulder, r->width*0.9, 1);
-            body_skeleton.lHand = findHand(Skin, body_skeleton.lElbow, r->height*1.5);
-
-
+            body_skeleton.lHand = findHand(Skin, people, body_skeleton.lElbow, body_skeleton.head, r->height*1.5);
 
             line(img, body_skeleton.head,   body_skeleton.neck, color, 2, 1, 0);
             line(img, body_skeleton.neck,   body_skeleton.rShoulder, color, 2, 1, 0);
@@ -467,7 +468,7 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
     }
 }
 
-double GetDistance(int x, int y, Mat disp8, Mat xyz)
+double GetDistance(int x, int y, Mat disp8, Mat xyz, Mat &dispMask)
 {
    double dispD = 0 ;
    double focal = disp8.cols*0.23;
@@ -487,6 +488,7 @@ double GetDistance(int x, int y, Mat disp8, Mat xyz)
    if(dispD !=0)
    {
         dispD /= averge;
+        inRange(disp8, Scalar(averge - 10), 255, dispMask);
         return (between*focal*16.0/dispD);
    } 
    else
@@ -639,7 +641,7 @@ Mat findDistTran(Mat bw)
 }
 
 void findUpperBody( Mat& img, CascadeClassifier& cascade,
-                    double scale, Rect FaceRect, Point &lShoulder, Point &rShoulder)
+                    double scale, Rect FaceRect,  BodySkeleton &body_skeleton)
 {
     int i = 0;
     char str[30];
@@ -659,23 +661,31 @@ void findUpperBody( Mat& img, CascadeClassifier& cascade,
     for( vector<Rect>::const_iterator r = upbody.begin(); r != upbody.end(); r++, i++ )
     {
         if(r->width > FaceRect.width && r->height > FaceRect.height)
-        {
-            printf("find upbody\n");
-            rShoulder = Point(cvRound(r->x*scale + (r->width-1)*0.1), r->y*scale + (r->height-1)*0.9);
-            lShoulder = Point(cvRound(r->x*scale + (r->width-1)*0.9), r->y*scale + (r->height-1)*0.9);
-            /*rectangle( img, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)),
-                        cvPoint(cvRound((r->x + r->width-1)*scale), cvRound((r->y + r->height-1)*scale)),
-                        Scalar(0, 255, 255), 3, 8, 0);*/
+        {   
+            Point center;
+            center.x = cvRound((r->x + r->width*0.5)*scale);
+            center.y = cvRound((r->y + r->height*0.5)*scale);
+
+            if(center.x > FaceRect.x && center.x < FaceRect.x + FaceRect.width)
+            {    
+                printf("find upbody\n");
+                body_skeleton.rShoulder = Point(cvRound(r->x*scale + (r->width-1)*0.1), r->y*scale + (r->height-1)*0.9);
+                body_skeleton.lShoulder = Point(cvRound(r->x*scale + (r->width-1)*0.9), r->y*scale + (r->height-1)*0.9);
+                /*rectangle( img, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)),
+                            cvPoint(cvRound((r->x + r->width-1)*scale), cvRound((r->y + r->height-1)*scale)),
+                            Scalar(0, 255, 255), 3, 8, 0);*/
+            }
         }    
     }
-    printf("rShoulder: %d, %d   lShoulder: %d, %d\n", rShoulder.x, rShoulder.y, lShoulder.x, lShoulder.y);
+    printf("rShoulder: %d, %d   lShoulder: %d, %d\n", body_skeleton.rShoulder.x, 
+            body_skeleton.rShoulder.y, body_skeleton.lShoulder.x, body_skeleton.lShoulder.y);
 }
 
 Mat findSkinColor(Mat src)
 {
     Mat bgr2ycrcbImg, ycrcb2skinImg;
-    cvtColor( src, bgr2ycrcbImg, cv::COLOR_BGR2YCrCb );
-    inRange( bgr2ycrcbImg, cv::Scalar(80, 135, 85), cv::Scalar(255, 180, 135), ycrcb2skinImg );
+    cvtColor( src, bgr2ycrcbImg, cv::COLOR_BGR2HSV );
+    inRange( bgr2ycrcbImg, cv::Scalar(0, 58, 40), cv::Scalar(35, 174, 255), ycrcb2skinImg );
     erode(ycrcb2skinImg, ycrcb2skinImg, Mat());
     dilate(ycrcb2skinImg, ycrcb2skinImg, Mat());
     //fillContours(ycrcb2skinImg);
@@ -710,62 +720,71 @@ Point findArm(Mat EDT, Point lShoulder, int fheight, int findLeftelbow)
     Point elbow = lShoulder;
     Mat proc;
     GaussianBlur(EDT, proc, Size(5, 5), 0);
-    inRange(EDT, Scalar(refValue - 30 > 0? refValue - 30 : 2), Scalar(refValue + 3), proc);
+    //inRange(EDT, Scalar(refValue - 30 > 0? refValue - 30 : 2), Scalar(refValue + 3), proc);
     //threshold( proc, proc, 0, 255, THRESH_BINARY|THRESH_OTSU );
     //erode(proc, proc, Mat());
-    //imshow("proc", proc);
+    imshow("proc", proc);
+    //return elbow;
 
     for(int i = 0; i < 5; i++)
     {
         bool find = false; 
         Point search;
         float TempSlope = 0;
-        //for(int y = elbow.y + fheight/4; y > elbow.y - fheight/4; y--)
-        for(int y = elbow.y + fheight/4 > EDT.rows - 1 ? EDT.rows - 1 : elbow.y + fheight/4; y > (elbow.y - fheight/4 < 0 ? 0 : elbow.y - fheight/4); y--)
-        {    
-           if(findLeftelbow == 1)
-           {   
-               //for(int x = elbow.x - fheight/4; x < elbow.x + fheight/4; x++)
-               for(int x = elbow.x - fheight/4 < 0 ? 0 : elbow.x - fheight/4; x < (elbow.x + fheight/4 > EDT.cols-1 ? EDT.cols : elbow.x + fheight/4); x++)
-               {
+
+        if(findLeftelbow == 1)
+        {
+            for(int x = elbow.x + fheight/4 > EDT.cols - 1 ? EDT.cols - 1 : elbow.x + fheight/4; x > (elbow.x - fheight/4 < 0 ? 0 : elbow.x - fheight/4); x--)
+            //for(int x = elbow.x - fheight/4 < 0 ? 0 : elbow.x - fheight/4; x < (elbow.x + fheight/4 > EDT.cols-1 ? EDT.cols : elbow.x + fheight/4); x++)
+            {
+                for(int y = elbow.y + fheight/4 > EDT.rows - 1 ? EDT.rows - 1 : elbow.y + fheight/4; y > (elbow.y - fheight/4 < 0 ? 0 : elbow.y - fheight/4); y--)
+                {
                   if(proc.at<unsigned char>(y, x) != 0
-                    && y >= 0 && y <= EDT.rows -1 
-                    && x >= 0 && x <= EDT.cols -1
+                    && x > lShoulder.x)
+                  {
+                       search = Point(x, y);
+                       find = true;
+                       break;
+                  }    
+                }
+
+                if(find == true)
+                {    
+                  if(search.y - elbow.y !=0) 
+                    TempSlope = (float)(search.x - elbow.x)/(search.y - elbow.y); 
+                  else
+                    TempSlope = search.x - elbow.x >= 0 ? 0.5 : -0.5;
+                  break;
+                }  
+            }    
+        }
+        else
+        {
+
+            for(int x = elbow.x - fheight/4 < 0 ? 0 : elbow.x - fheight/4; x < (elbow.x + fheight/4 > EDT.cols-1 ? EDT.cols : elbow.x + fheight/4); x++)
+            //for(int x = elbow.x + fheight/4 > EDT.cols - 1 ? EDT.cols - 1 : elbow.x + fheight/4; x > (elbow.x - fheight/4 < 0 ? 0 : elbow.x - fheight/4); x--)
+            {
+                for(int y = elbow.y + fheight/4 > EDT.rows - 1 ? EDT.rows - 1 : elbow.y + fheight/4; y > (elbow.y - fheight/4 < 0 ? 0 : elbow.y - fheight/4); y--)
+                {
+                  if(proc.at<unsigned char>(y, x) != 0
                     && x < lShoulder.x)
                   {
                        search = Point(x, y);
                        find = true;
                        break;
                   }    
-               }
-           }
-           else
-           {
-               //for(int x = elbow.x + fheight/4; x > elbow.x - fheight/4; x--)
-               for(int x = elbow.x + fheight/4 > EDT.cols - 1 ? EDT.cols - 1 : elbow.x + fheight/4; x > (elbow.x - fheight/4 < 0 ? 0 : elbow.x - fheight/4); x--)
-               {
-                  if(proc.at<unsigned char>(y, x) != 0
-                        && y >= 0 && y <= EDT.rows -1 
-                        && x >= 0 && x <= EDT.cols -1
-                        && x > lShoulder.x)
-                  {
-                       search = Point(x, y);
-                       find = true;
-                       break;
-                  }    
-               }
-            }   
-               
+                }
 
-           if(find == true)
-           {
-              if(search.y - elbow.y !=0) 
-                TempSlope = (float)(search.x - elbow.x)/(search.y - elbow.y); 
-              else
-                TempSlope = search.x - elbow.x >= 0 ? 0.5 : -0.5;
-              break;
-           }    
-        }
+                if(find == true)
+                {    
+                  if(search.y - elbow.y !=0) 
+                    TempSlope = (float)(search.x - elbow.x)/(search.y - elbow.y); 
+                  else
+                    TempSlope = search.x - elbow.x >= 0 ? 0.5 : -0.5;
+                  break;
+                }  
+            }    
+        }    
 
         printf("Slope %f, TempSlope %f\n", Slope, TempSlope);
         if(abs(Slope - TempSlope) > 0.4 && i > 3)
@@ -780,24 +799,26 @@ Point findArm(Mat EDT, Point lShoulder, int fheight, int findLeftelbow)
 
     printf("lelbow %d, %d\n", elbow.x, elbow.y);
     return elbow;
-
 }    
 
-Point findHand(Mat Skin, Point rElbow, int FWidth)
+Point findHand(Mat Skin, Mat People, Point rElbow, Point FacePoint, int FWidth)
 {
     Point rHand = rElbow;
     Mat labelImage(Skin.size(), CV_32S);
+    Mat mask(Skin.size(), CV_8UC1);
+    Mat handimg(Skin.size(), CV_8UC3, Scalar(0));
     int nLabels = connectedComponents(Skin, labelImage, 8);
     int label;
     int minD = FWidth;
     int maxD = 0;
     int procD = 0;
+    int facelabel = labelImage.at<int>(FacePoint.y, FacePoint.x);
 
     //find the most close area
     for(int x = rElbow.x - FWidth > 0 ? rElbow.x - FWidth: 0; x < (rElbow.x + FWidth < Skin.cols-1 ? rElbow.x + FWidth : Skin.cols -1); x++)
         for(int y = rElbow.y - FWidth > 0 ? rElbow.y - FWidth: 0; y < (rElbow.y + FWidth < Skin.rows-1 ? rElbow.y + FWidth : Skin.rows -1); y++)
         {
-            if(labelImage.at<int>(y,x) != 0)
+            if(labelImage.at<int>(y,x) != 0 && labelImage.at<int>(y,x) != facelabel)
             {    
                 procD =CalcuDistance(rElbow, Point(x,y));
                 if(procD < minD)
@@ -806,9 +827,42 @@ Point findHand(Mat Skin, Point rElbow, int FWidth)
                     label = labelImage.at<int>(y,x);
                 }        
             }    
-        }    
+        } 
 
+    inRange(labelImage, Scalar(label), Scalar(label), mask);
+    Mat element_mask = Mat(Size(5, 5), CV_8UC1, Scalar(1));
+    dilate(mask, mask, element_mask);
+    People.copyTo(handimg, mask);
+    //imshow("hand", handimg);
+    double scale = 1.0;
+
+    vector<Rect> hand;
+    Mat gray, smallImg( cvRound (Skin.rows/scale), cvRound(Skin.cols/scale), CV_8UC1 );
+    cvtColor( handimg, gray, COLOR_BGR2GRAY );
+    resize( gray, smallImg, smallImg.size(), 0, 0, INTER_LINEAR );
+    equalizeHist( smallImg, smallImg );
+    //imshow("smallImg", smallImg);
+
+    cascade_hand.detectMultiScale( smallImg, hand,
+        1.1, 2, 0
+        |CASCADE_FIND_BIGGEST_OBJECT
+        //|CASCADE_DO_ROUGH_SEARCH
+        |CASCADE_SCALE_IMAGE
+        ,
+        Size(10, 10) );
+
+    for( vector<Rect>::const_iterator r = hand.begin(); r != hand.end(); r++)
+    {
+        rHand.x = cvRound((r->x + r->width*0.5)*scale);
+        rHand.y = cvRound((r->y + r->height*0.5)*scale);
+        return rHand;
+        /*rectangle( People, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)),
+                    cvPoint(cvRound((r->x + r->width-1)*scale), cvRound((r->y + r->height-1)*scale)),
+                    Scalar(0, 255, 255), 3, 8, 0);*/
+    }
+    //imshow("people", People);
     //find the most far point of the most close area
+    FWidth = FWidth * 1.2;
     for(int x = rElbow.x - FWidth > 0 ? rElbow.x - FWidth: 0; x < (rElbow.x + FWidth < Skin.cols-1 ? rElbow.x + FWidth : Skin.cols -1); x++)
         for(int y = rElbow.y - FWidth > 0 ? rElbow.y - FWidth: 0; y < (rElbow.y + FWidth < Skin.rows-1 ? rElbow.y + FWidth : Skin.rows -1); y++)
         {
@@ -822,7 +876,7 @@ Point findHand(Mat Skin, Point rElbow, int FWidth)
                 }        
             }    
         }    
-  printf("hand %d, %d\n", rHand.x, rHand.y);  
+  //printf("hand %d, %d\n", rHand.x, rHand.y);  
 
   return rHand;
 }    
