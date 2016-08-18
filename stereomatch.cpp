@@ -294,74 +294,6 @@ int main(int argc, char* argv[])
     camera0.release();
     camera1.release();
 
-   //Create point cloud and fill it
-    std::cout << "Creating Point Cloud..." << std::endl;
-    //pcl::PointCloud<pcl::PointXYZRGB>::Ptr point_cloud_ptr(new pcl::PointCloud<pcl::PointXYZRGB>);
-
-    /*double px, py, pz;
-    uchar pr, pg, pb;
-
-    for (int i = 0; i < img1.rows; i++)
-    {
-        uchar* rgb_ptr = img1.ptr<uchar>(i);
-#ifdef CUSTOM_REPROJECT
-        uchar* disp_ptr = disp8.ptr<uchar>(i);
-#else
-        float* recons_ptr = xyz.ptr<float>(i);
-#endif
-        for (int j = 0; j < img2.cols; j++)
-        {
-            //Get 3D coordinates
-#ifdef CUSTOM_REPROJECT
-            uchar d = disp_ptr[j];
-            if (d == 0) continue; //Discard bad pixels
-            double pw = -1.0 * static_cast<double>(d)* Q32 + Q33;
-            px = static_cast<double>(j)+Q03;
-            py = static_cast<double>(i)+Q13;
-            pz = Q23;
-
-            px = px / pw;
-            py = py / pw;
-            pz = pz / pw;
-
-    #else
-            px = recons_ptr[3 * j];
-            py = recons_ptr[3 * j + 1];
-            pz = recons_ptr[3 * j + 2];
-    #endif
-
-            //Get RGB info
-            pb = rgb_ptr[3 * j];
-            pg = rgb_ptr[3 * j + 1];
-            pr = rgb_ptr[3 * j + 2];
-
-            //Insert info into point cloud structure
-            pcl::PointXYZRGB point;
-            point.x = px;
-            point.y = py;
-            point.z = pz;
-            uint32_t rgb = (static_cast<uint32_t>(pr) << 16 |
-                static_cast<uint32_t>(pg) << 8 | static_cast<uint32_t>(pb)); //NULL
-            point.rgb = *reinterpret_cast<float*>(&rgb);
-            point_cloud_ptr->points.push_back(point);
-        }
-    }
-    point_cloud_ptr->width = (int)point_cloud_ptr->points.size();
-    point_cloud_ptr->height = 20; //1
-
-
-    //Create visualizer
-    boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
-    //viewer = createVisualizer(point_cloud_ptr);
-
-    //Main loop
-    //while (!viewer->wasStopped())
-    //{
-    //    viewer->spinOnce(10); //100
-    //    boost::this_thread::sleep(boost::posix_time::microseconds(100000));
-    //}*/
-
-
     return(0);
 }
 
@@ -415,7 +347,7 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
         double Dist = GetDistance(center.x, center.y, disp, mask, dispMask);
         threshold(disp, mask, 10, 255,  THRESH_BINARY);
         fillContours(mask);
-        //findConnectComponent(mask, center.x, center.y);
+        findConnectComponent(mask, center.x, center.y);
         img.copyTo(people, mask);
         Skin = findSkinColor(people);
         body_skeleton.head = Point(center.x, center.y);
@@ -720,10 +652,10 @@ Point findArm(Mat EDT, Point lShoulder, int fheight, int findLeftelbow)
     Point elbow = lShoulder;
     Mat proc;
     GaussianBlur(EDT, proc, Size(5, 5), 0);
-    //inRange(EDT, Scalar(refValue - 30 > 0? refValue - 30 : 2), Scalar(refValue + 3), proc);
+    inRange(proc, Scalar(refValue - 30 > 0? refValue - 30 : 2), Scalar(refValue + 3), proc);
     //threshold( proc, proc, 0, 255, THRESH_BINARY|THRESH_OTSU );
     //erode(proc, proc, Mat());
-    imshow("proc", proc);
+    //imshow("proc", proc);
     //return elbow;
 
     for(int i = 0; i < 5; i++)
