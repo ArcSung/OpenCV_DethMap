@@ -182,12 +182,11 @@ int main(int argc, char* argv[])
     Ptr<BackgroundSubtractor> bg_model1 =  
             createBackgroundSubtractorMOG2().dynamicCast<BackgroundSubtractor>();
     Mat fgmask1, fgimg1;
-    std::vector<Mat> vectorOfHSVImages;
 
     namedWindow("disparity", 0);
     namedWindow("left", 0);        
     createTrackbar("Threshold", "disparity", &Thres, 256, 0);
-    Mat xyz, bin_mask;
+    Mat bin_mask;
 
     while(1)
     {
@@ -223,14 +222,11 @@ int main(int argc, char* argv[])
 
         Mat disp, disp8, disp32F;
 
-        //int64 t = getTickCount();
         if( alg == STEREO_BM )
             bm->compute(img1, img2, disp);
         else if( alg == STEREO_SGBM || alg == STEREO_HH )
             sgbm->compute(img1, img2, disp);
-        //printf("Time elapsed: %fms\n", t*1000/getTickFrequency());
 
-        //disp = dispp.colRange(numberOfDisparities, img1p.cols);
         if( alg != STEREO_VAR )
         {    
             disp.convertTo(disp8, CV_8U, 255/(numberOfDisparities*16.));
@@ -239,12 +235,10 @@ int main(int argc, char* argv[])
         else
             disp.convertTo(disp8, CV_8U);
 
-        reprojectImageTo3D(disp, xyz, Q, true);
         if(open_bg_model == true)
           disp8 = disp8 & fgmask1;
         inRange(disp8, Scalar(Thres, Thres, Thres), Scalar(256, 256, 256), fgmask1);
         disp8 = disp8 & fgmask1;
-        //dilate(disp8, disp8, Mat());
         flip(disp8, disp8, 1);
 
         flip(img2, img2, 1);
@@ -253,12 +247,7 @@ int main(int argc, char* argv[])
         detectAndDraw(img1, cascade, scale, disp8, bin_mask);
 
         imshow("left", img1);
-        //namedWindow("right", 1);
-        //imshow("right", img2);
         imshow("disparity", disp8);
-        //imshow("bin_mask", bin_mask);
-        //namedWindow("xyz", 0);
-        //imshow("xyz", xyz);
 
 
         char c = (char)waitKey(10);
@@ -336,7 +325,6 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
         Mat smallImgROI;
         Mat DT, Skin, dispMask = Mat::zeros(img.size(), CV_8UC1);
         Mat people = Mat::zeros(img.size(), CV_8UC3);
-        vector<Rect> nestedObjects;
         Point center;
         Scalar color = colors[i%8];
         int radius = cvRound((r->width + r->height)*0.128*scale);
