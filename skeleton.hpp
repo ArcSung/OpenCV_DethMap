@@ -27,10 +27,11 @@ class BodySkeleton
 
 };
 
+double CalcuDistance(Point P1, Point P2);
 
 void findConnectComponent(Mat &bw, int x, int y);
 
-void findSkeleton(Mat bw);
+void findSkeleton(Mat &bw);
 
 Mat findDistTran(Mat bw);
 

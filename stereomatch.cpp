@@ -13,7 +13,6 @@ static void print_help()
            "[--no-display] [-o <disparity_image>] [-p <point_cloud_file>]\n");
 }
 
-
 Mat CalcuEDT(Mat DT, Point ref)
 {
     int channels = DT.channels();
@@ -62,7 +61,7 @@ int main(int argc, char* argv[])
     bool update_bg_model = true;
     bool open_bg_model = false;
     int FrameCount = 0;
-    int Thres = 95;
+    int Thres = 85;
     if( !cascade.load(cascadeName)){ printf("--(!)Error cascade\n"); return -1; };
     if( !cascade2.load(cascadeName2)){ printf("--(!)Error cascade2\n"); return -1; };
     if( !cascade_hand.load(cascadeName3)){ printf("--(!)Error cascade3\n"); return -1; };
@@ -303,6 +302,7 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
 
     cvtColor( img, gray, COLOR_BGR2GRAY );
     threshold(disp, mask, 10, 255, THRESH_BINARY);
+    mask &= findSkinColor(img);
     dilate(mask, mask, Mat());
     gray &= mask;
     resize( gray, smallImg, smallImg.size(), 0, 0, INTER_LINEAR );
@@ -315,46 +315,54 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
         |CASCADE_SCALE_IMAGE
         ,
         Size(30, 30) );
+
     for( vector<Rect>::const_iterator r = faces.begin(); r != faces.end(); r++, i++ )
     {
-        //if(r->width < img.cols/8)
-        //    continue;
-        //    ROI setting
+        BodySkeleton body_skeleton;
+        Mat DT, EDT, Skin, dispMask, people;
+
+        //ROI setting
         Point tl, tr, bl, br;
         tl = Point (cvRound((r->x - r->width*2.0)*scale) > 0 ? cvRound((r->x - r->width*2.0)*scale) : 0
                 , cvRound((r->y - r->height*1.0)*scale) > 0 ? cvRound((r->y - r->height*1.0)*scale) : 0); 
         tr = Point (cvRound((r->x + r->width*3.0)*scale) < img.cols ? cvRound((r->x + r->width*3.0)*scale):img.cols, tl.y); 
         bl = Point (tl.x, cvRound((r->y + r->height*4.0)*scale) < img.rows ? cvRound((r->y + r->height*4.0)*scale) : img.rows); 
         br = Point (tr.x, bl.y); 
-        BodySkeleton body_skeleton;
         Rect RoiRect = Rect(tl.x, tl.y, tr.x - tl.x, bl.y - tl.y);
         Mat imgROI = img(RoiRect);
         Mat dispROI = disp(RoiRect);
 
-        Mat DT, EDT, Skin, dispMask = Mat::zeros(imgROI.size(), CV_8UC1);
-        Mat people = Mat::zeros(imgROI.size(), CV_8UC3);
+        dispMask = Mat::zeros(imgROI.size(), CV_8UC1);
+        people = Mat::zeros(imgROI.size(), CV_8UC3);
+
+        // face Point
         Point center;
         Scalar color = colors[i%8];
         int radius = cvRound((r->width + r->height)*0.128*scale);
         double aspect_ratio = (double)r->width/r->height;
-
         center.x = cvRound((r->x + r->width*0.5)*scale - tl.x);
         center.y = cvRound((r->y + r->height*0.5)*scale - tl.y);
+
+        //Mask
         double Dist = GetFaceDistance(center.x, center.y, dispROI, dispMask);
         //threshold(dispMask, dispMask, 10, 255,  THRESH_BINARY);
-        //fillContours(dispMask);
+        fillContours(dispMask);
         findConnectComponent(dispMask, center.x, center.y);
         //imshow("dispMask", dispMask);
         imgROI.copyTo(people, dispMask);
+        
+        //start search skeleton
         Skin = findSkinColor(people);
         body_skeleton.head = Point(center.x, center.y);
         body_skeleton.neck = Point(center.x, center.y + r->height*0.6);
         body_skeleton.lShoulder = Point(0, 0);
         body_skeleton.rShoulder = Point(0, 0);
         findUpperBody( imgROI, cascade2, scale, Rect(r->x, r->y, r->width, r->height), body_skeleton);
+
         if(body_skeleton.lShoulder.x != 0 && body_skeleton.lShoulder.y != 0 )
         {
             DT = findDistTran(dispMask);
+            //findSkeleton(dispMask);
             //find right arm
             //EDT = CalcuEDT(DT, body_skeleton.rShoulder);
             body_skeleton.rElbow = findArm(DT, body_skeleton.rShoulder, r->width*0.9, 0);
@@ -371,16 +379,26 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
             line(imgROI, body_skeleton.neck,   body_skeleton.lShoulder, color, 2, 1, 0);
             line(imgROI, body_skeleton.rShoulder,   body_skeleton.rElbow, color, 2, 1, 0);
             line(imgROI, body_skeleton.lShoulder,   body_skeleton.lElbow, color, 2, 1, 0);
-            line(imgROI, body_skeleton.rElbow,   body_skeleton.rHand, color, 2, 1, 0);
-            line(imgROI, body_skeleton.lElbow,   body_skeleton.lHand, color, 2, 1, 0);
             circle(imgROI, body_skeleton.head, radius*0.2, Scalar(0, 255, 0), 2, 1, 0);
             circle(imgROI, body_skeleton.neck, radius*0.2, Scalar(0, 255, 0), 2, 1, 0);
             circle(imgROI, body_skeleton.rShoulder, radius*0.2, Scalar(255, 0, 0), 2, 1, 0);
             circle(imgROI, body_skeleton.lShoulder, radius*0.2, Scalar(255, 0, 0), 2, 1, 0);
             circle(imgROI, body_skeleton.rElbow, radius*0.2, Scalar(0, 255, 0), 2, 1, 0);
             circle(imgROI, body_skeleton.lElbow, radius*0.2, Scalar(0, 255, 0), 2, 1, 0);
-            circle(imgROI, body_skeleton.rHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
-            circle(imgROI, body_skeleton.lHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
+            
+            //right hand 
+            if(CalcuDistance(body_skeleton.rElbow, body_skeleton.rHand) > r->width*0.5)
+            {
+                line(imgROI, body_skeleton.rElbow,   body_skeleton.rHand, color, 2, 1, 0);
+                circle(imgROI, body_skeleton.rHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
+            }    
+
+            //left hand 
+            if(CalcuDistance(body_skeleton.lElbow, body_skeleton.lHand) > r->width*0.5)
+            {
+                line(imgROI, body_skeleton.lElbow,   body_skeleton.lHand, color, 2, 1, 0);
+                circle(imgROI, body_skeleton.lHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
+            }    
         }    
 
         rectangle( img, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)),
@@ -513,7 +531,7 @@ void fillContours(Mat &bw)
     Scalar color(255);
     for(int i = 0; i < contours.size(); i++) // Iterate through each contour
     {
-            drawContours(bw, contours, i, color, CV_FILLED, 8, hierarchy);
+        drawContours(bw, contours, i, color, CV_FILLED, 8, hierarchy);
     }
 }
 

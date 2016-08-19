@@ -8,6 +8,37 @@ double CalcuDistance(Point P1, Point P2)
     return norm(P1 - P2);
 }    
 
+Mat findSkinColor(Mat src)
+{
+    Mat bgr2ycrcbImg, ycrcb2skinImg;
+    cvtColor( src, bgr2ycrcbImg, cv::COLOR_BGR2HSV );
+    inRange( bgr2ycrcbImg, cv::Scalar(0, 58, 40), cv::Scalar(35, 174, 255), ycrcb2skinImg );
+    erode(ycrcb2skinImg, ycrcb2skinImg, Mat());
+    dilate(ycrcb2skinImg, ycrcb2skinImg, Mat());
+    //fillContours(ycrcb2skinImg);
+    std::vector<std::vector<Point> > contours;
+    std::vector<Vec4i> hierarchy;
+
+    findContours(ycrcb2skinImg,
+    contours,
+    hierarchy,
+    RETR_TREE,
+    CHAIN_APPROX_SIMPLE);
+
+    Mat drawing = Mat::zeros( src.size(), CV_8UC1 );
+
+    for( int i = 0; i< contours.size(); i++ ) // iterate through each contour. 
+    {
+        double a=contourArea( contours[i],false);  //  Find the area of contour
+        if(a>200)
+        {
+            drawContours(drawing, contours, i, Scalar(255), CV_FILLED, 8, hierarchy);
+        }
+    } 
+    //imshow("skin color", drawing);
+
+    return drawing;
+}    
 
 void findConnectComponent(Mat &bw, int x, int y)
 {
@@ -23,7 +54,7 @@ void findConnectComponent(Mat &bw, int x, int y)
 
 }
 
-void findSkeleton(Mat bw)
+void findSkeleton(Mat &bw)
 {
     Mat element = cv::getStructuringElement(cv::MORPH_CROSS, cv::Size(9, 9));
     bool done;
@@ -88,37 +119,6 @@ void findUpperBody( Mat& img, CascadeClassifier& cascade,
             body_skeleton.rShoulder.y, body_skeleton.lShoulder.x, body_skeleton.lShoulder.y);
 }
 
-Mat findSkinColor(Mat src)
-{
-    Mat bgr2ycrcbImg, ycrcb2skinImg;
-    cvtColor( src, bgr2ycrcbImg, cv::COLOR_BGR2HSV );
-    inRange( bgr2ycrcbImg, cv::Scalar(0, 58, 40), cv::Scalar(35, 174, 255), ycrcb2skinImg );
-    erode(ycrcb2skinImg, ycrcb2skinImg, Mat());
-    dilate(ycrcb2skinImg, ycrcb2skinImg, Mat());
-    //fillContours(ycrcb2skinImg);
-    std::vector<std::vector<Point> > contours;
-    std::vector<Vec4i> hierarchy;
-
-    findContours(ycrcb2skinImg,
-    contours,
-    hierarchy,
-    RETR_TREE,
-    CHAIN_APPROX_SIMPLE);
-
-    Mat drawing = Mat::zeros( src.size(), CV_8UC1 );
-
-    for( int i = 0; i< contours.size(); i++ ) // iterate through each contour. 
-    {
-        double a=contourArea( contours[i],false);  //  Find the area of contour
-        if(a>200)
-        {
-            drawContours(drawing, contours, i, Scalar(255), CV_FILLED, 8, hierarchy);
-        }
-    } 
-    //imshow("skin color", drawing);
-
-    return drawing;
-}    
 
 Point findArm(Mat EDT, Point lShoulder, int fheight, int findLeftelbow)
 {
@@ -127,7 +127,7 @@ Point findArm(Mat EDT, Point lShoulder, int fheight, int findLeftelbow)
     Point elbow = lShoulder;
     Mat proc;
     GaussianBlur(EDT, proc, Size(5, 5), 0);
-    inRange(proc, Scalar(refValue - 10 > 0? refValue - 10 : 2), Scalar(refValue + 3), proc);
+    //inRange(proc, Scalar(refValue - 10 > 0? refValue - 10 : 2), Scalar(refValue + 3), proc);
     //threshold( proc, proc, 0, 255, THRESH_BINARY|THRESH_OTSU );
     //erode(proc, proc, Mat());
     imshow("proc", proc);
@@ -238,6 +238,19 @@ Point findHand(Mat Skin, Mat People, CascadeClassifier& cascade_hand, Point rElb
 
     inRange(labelImage, Scalar(label), Scalar(label), mask);
     Mat element_mask = Mat(Size(5, 5), CV_8UC1, Scalar(1));
+
+    /*Mat temp = Mat(mask.size(), mask.type());
+    vector<vector<Point> > contours;
+    vector<Vec4i> hierarchy;
+    findContours(mask, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0,0));
+
+    for (vector<vector<Point> >::iterator it = contours.begin(); it!=contours.end(); )
+    {
+        if (it->size()>50)
+            drawContours(temp, contours, 0, Scalar(255), CV_FILLED, 8, hierarchy);
+        ++it;
+    }*/
+
     dilate(mask, mask, element_mask);
     People.copyTo(handimg, mask);
     //imshow("hand", handimg);
@@ -273,7 +286,7 @@ Point findHand(Mat Skin, Mat People, CascadeClassifier& cascade_hand, Point rElb
     for(int x = rElbow.x - FWidth > 0 ? rElbow.x - FWidth: 0; x < (rElbow.x + FWidth < Skin.cols-1 ? rElbow.x + FWidth : Skin.cols -1); x++)
         for(int y = rElbow.y - FWidth > 0 ? rElbow.y - FWidth: 0; y < (rElbow.y + FWidth < Skin.rows-1 ? rElbow.y + FWidth : Skin.rows -1); y++)
         {
-            if(labelImage.at<int>(y,x) == label)
+            if(mask.at<int>(y,x) > 0)
             {    
                 procD =CalcuDistance(rElbow, Point(x,y));
                 if(procD > maxD)
