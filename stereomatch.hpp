@@ -5,7 +5,6 @@
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/video/background_segm.hpp"
 #include "opencv2/ximgproc/disparity_filter.hpp"
-#include "skeleton.hpp"
 
 #include <vector>
 #include <string>
@@ -37,21 +36,6 @@ string cascadeName = "1.xml";
 string cascadeName2 = "haarcascade_mcs_upperbody.xml";
 string cascadeName3 = "fist.xml";
 
-class BodySkeleton
-{
-  public:
-    Point head;
-    Point neck;
-    Point lShoulder;
-    Point rShoulder;
-    Point rElbow;
-    Point lElbow;
-    Point rHand;
-    Point lHand;
-
-};
-
-
 static void saveXYZ(const char* filename, const Mat& mat);
 
 bool read_file(const char* filename);
@@ -65,19 +49,4 @@ double GetFaceDistance(int x, int y, Mat disp8, Mat &dispMask);
 void detectAndDraw( Mat& img, CascadeClassifier& cascade,
                     double scale, Mat disp, Mat &mask);
 
-void findConnectComponent(Mat &bw, int x, int y);
-
-void findSkeleton(Mat bw);
-
-Mat findDistTran(Mat bw);
-
-void findUpperBody( Mat& img, CascadeClassifier& cascade, double scale, Rect FaceRect, BodySkeleton &body_skeleton);
-
-Mat CalcuEDT(Mat DT, Point ref);
-
-Mat findSkinColor(Mat src);
-
-Point findArm(Mat EDT, Point lShoulder, int fheight, int findLeftelbow);
-
-Point findHand(Mat Skin, Mat People, Point rElbow, Point FacePoint, int FWidth);
 
