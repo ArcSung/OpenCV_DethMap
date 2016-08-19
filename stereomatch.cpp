@@ -13,7 +13,7 @@ static void print_help()
 }
 
 
-void CalcuEDT(Mat DT, Mat Disp, Point ref)
+Mat CalcuEDT(Mat DT, Point ref)
 {
     int channels = DT.channels();
     Mat EDT = Mat(DT.size(), DT.type(), Scalar(0));
@@ -40,6 +40,8 @@ void CalcuEDT(Mat DT, Mat Disp, Point ref)
             }*/    
         imshow("EDT", EDT);
     }
+
+    return EDT;
 }    
 
 double CalcuDistance(Point P1, Point P2)
@@ -319,33 +321,44 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
         Size(30, 30) );
     for( vector<Rect>::const_iterator r = faces.begin(); r != faces.end(); r++, i++ )
     {
-        if(r->width < img.cols/8)
-            continue;
+        //if(r->width < img.cols/8)
+        //    continue;
+        //    ROI setting
+        Point tl, tr, bl, br;
+        tl = Point (cvRound((r->x - r->width*2.0)*scale) > 0 ? cvRound((r->x - r->width*2.0)*scale) : 0
+                , cvRound((r->y - r->height*1.0)*scale) > 0 ? cvRound((r->y - r->height*1.0)*scale) : 0); 
+        tr = Point (cvRound((r->x + r->width*3.0)*scale) < img.cols ? cvRound((r->x + r->width*3.0)*scale):img.cols, tl.y); 
+        bl = Point (tl.x, cvRound((r->y + r->height*4.0)*scale) < img.rows ? cvRound((r->y + r->height*4.0)*scale) : img.rows); 
+        br = Point (tr.x, bl.y); 
         BodySkeleton body_skeleton;
-        Mat smallImgROI;
-        Mat DT, Skin, dispMask = Mat::zeros(img.size(), CV_8UC1);
-        Mat people = Mat::zeros(img.size(), CV_8UC3);
+        Rect RoiRect = Rect(tl.x, tl.y, tr.x - tl.x, bl.y - tl.y);
+        Mat imgROI = img(RoiRect);
+        Mat dispROI = disp(RoiRect);
+
+        Mat DT, EDT, Skin, dispMask = Mat::zeros(imgROI.size(), CV_8UC1);
+        Mat people = Mat::zeros(imgROI.size(), CV_8UC3);
         Point center;
         Scalar color = colors[i%8];
         int radius = cvRound((r->width + r->height)*0.128*scale);
         double aspect_ratio = (double)r->width/r->height;
 
-        center.x = cvRound((r->x + r->width*0.5)*scale);
-        center.y = cvRound((r->y + r->height*0.5)*scale);
-        double Dist = GetDistance(center.x, center.y, disp, mask, dispMask);
-        threshold(disp, mask, 10, 255,  THRESH_BINARY);
-        fillContours(mask);
-        findConnectComponent(mask, center.x, center.y);
-        img.copyTo(people, mask);
+        center.x = cvRound((r->x + r->width*0.5)*scale - tl.x);
+        center.y = cvRound((r->y + r->height*0.5)*scale - tl.y);
+        double Dist = GetFaceDistance(center.x, center.y, dispROI, dispMask);
+        //threshold(dispMask, dispMask, 10, 255,  THRESH_BINARY);
+        //fillContours(dispMask);
+        findConnectComponent(dispMask, center.x, center.y);
+        //imshow("dispMask", dispMask);
+        imgROI.copyTo(people, dispMask);
         Skin = findSkinColor(people);
         body_skeleton.head = Point(center.x, center.y);
         body_skeleton.neck = Point(center.x, center.y + r->height*0.6);
         body_skeleton.lShoulder = Point(0, 0);
         body_skeleton.rShoulder = Point(0, 0);
-        findUpperBody( img, cascade2, scale, Rect(r->x, r->y, r->width, r->height), body_skeleton);
+        findUpperBody( imgROI, cascade2, scale, Rect(r->x, r->y, r->width, r->height), body_skeleton);
         if(body_skeleton.lShoulder.x != 0 && body_skeleton.lShoulder.y != 0 )
         {
-            DT = findDistTran(mask);
+            DT = findDistTran(dispMask);
             //find right arm
             //EDT = CalcuEDT(DT, body_skeleton.rShoulder);
             body_skeleton.rElbow = findArm(DT, body_skeleton.rShoulder, r->width*0.9, 0);
@@ -353,25 +366,25 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
 
             //waitKey(0);
             //find left arm
-            //EDT = CalcuEDT(DT, body_skeleton.lShoulder);
+            //EDT = CalcuEDT(EDT, body_skeleton.lShoulder);
             body_skeleton.lElbow = findArm(DT, body_skeleton.lShoulder, r->width*0.9, 1);
             body_skeleton.lHand = findHand(Skin, people, body_skeleton.lElbow, body_skeleton.head, r->height*1.5);
 
-            line(img, body_skeleton.head,   body_skeleton.neck, color, 2, 1, 0);
-            line(img, body_skeleton.neck,   body_skeleton.rShoulder, color, 2, 1, 0);
-            line(img, body_skeleton.neck,   body_skeleton.lShoulder, color, 2, 1, 0);
-            line(img, body_skeleton.rShoulder,   body_skeleton.rElbow, color, 2, 1, 0);
-            line(img, body_skeleton.lShoulder,   body_skeleton.lElbow, color, 2, 1, 0);
-            line(img, body_skeleton.rElbow,   body_skeleton.rHand, color, 2, 1, 0);
-            line(img, body_skeleton.lElbow,   body_skeleton.lHand, color, 2, 1, 0);
-            circle(img, body_skeleton.head, radius*0.2, Scalar(0, 255, 0), 2, 1, 0);
-            circle(img, body_skeleton.neck, radius*0.2, Scalar(0, 255, 0), 2, 1, 0);
-            circle(img, body_skeleton.rShoulder, radius*0.2, Scalar(255, 0, 0), 2, 1, 0);
-            circle(img, body_skeleton.lShoulder, radius*0.2, Scalar(255, 0, 0), 2, 1, 0);
-            circle(img, body_skeleton.rElbow, radius*0.2, Scalar(0, 255, 0), 2, 1, 0);
-            circle(img, body_skeleton.lElbow, radius*0.2, Scalar(0, 255, 0), 2, 1, 0);
-            circle(img, body_skeleton.rHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
-            circle(img, body_skeleton.lHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
+            line(imgROI, body_skeleton.head,   body_skeleton.neck, color, 2, 1, 0);
+            line(imgROI, body_skeleton.neck,   body_skeleton.rShoulder, color, 2, 1, 0);
+            line(imgROI, body_skeleton.neck,   body_skeleton.lShoulder, color, 2, 1, 0);
+            line(imgROI, body_skeleton.rShoulder,   body_skeleton.rElbow, color, 2, 1, 0);
+            line(imgROI, body_skeleton.lShoulder,   body_skeleton.lElbow, color, 2, 1, 0);
+            line(imgROI, body_skeleton.rElbow,   body_skeleton.rHand, color, 2, 1, 0);
+            line(imgROI, body_skeleton.lElbow,   body_skeleton.lHand, color, 2, 1, 0);
+            circle(imgROI, body_skeleton.head, radius*0.2, Scalar(0, 255, 0), 2, 1, 0);
+            circle(imgROI, body_skeleton.neck, radius*0.2, Scalar(0, 255, 0), 2, 1, 0);
+            circle(imgROI, body_skeleton.rShoulder, radius*0.2, Scalar(255, 0, 0), 2, 1, 0);
+            circle(imgROI, body_skeleton.lShoulder, radius*0.2, Scalar(255, 0, 0), 2, 1, 0);
+            circle(imgROI, body_skeleton.rElbow, radius*0.2, Scalar(0, 255, 0), 2, 1, 0);
+            circle(imgROI, body_skeleton.lElbow, radius*0.2, Scalar(0, 255, 0), 2, 1, 0);
+            circle(imgROI, body_skeleton.rHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
+            circle(imgROI, body_skeleton.lHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
         }    
 
         rectangle( img, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)),
@@ -388,7 +401,7 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
     }
 }
 
-double GetDistance(int x, int y, Mat disp8, Mat xyz, Mat &dispMask)
+double GetFaceDistance(int x, int y, Mat disp8, Mat &dispMask)
 {
    double dispD = 0 ;
    double focal = disp8.cols*0.23;
@@ -408,7 +421,7 @@ double GetDistance(int x, int y, Mat disp8, Mat xyz, Mat &dispMask)
    if(dispD !=0)
    {
         dispD /= averge;
-        inRange(disp8, Scalar(averge - 10), 255, dispMask);
+        inRange(disp8, Scalar(averge), 255, dispMask);
         return (between*focal*16.0/dispD);
    } 
    else
@@ -586,11 +599,12 @@ void findUpperBody( Mat& img, CascadeClassifier& cascade,
             center.x = cvRound((r->x + r->width*0.5)*scale);
             center.y = cvRound((r->y + r->height*0.5)*scale);
 
-            if(center.x > FaceRect.x && center.x < FaceRect.x + FaceRect.width)
+            if(center.x > FaceRect.x && center.x < FaceRect.x + FaceRect.width && center.y < FaceRect.y + FaceRect.width*2 )
             {    
                 printf("find upbody\n");
                 body_skeleton.rShoulder = Point(cvRound(r->x*scale + (r->width-1)*0.1), r->y*scale + (r->height-1)*0.9);
                 body_skeleton.lShoulder = Point(cvRound(r->x*scale + (r->width-1)*0.9), r->y*scale + (r->height-1)*0.9);
+                break;
                 /*rectangle( img, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)),
                             cvPoint(cvRound((r->x + r->width-1)*scale), cvRound((r->y + r->height-1)*scale)),
                             Scalar(0, 255, 255), 3, 8, 0);*/
@@ -640,10 +654,10 @@ Point findArm(Mat EDT, Point lShoulder, int fheight, int findLeftelbow)
     Point elbow = lShoulder;
     Mat proc;
     GaussianBlur(EDT, proc, Size(5, 5), 0);
-    inRange(proc, Scalar(refValue - 30 > 0? refValue - 30 : 2), Scalar(refValue + 3), proc);
+    inRange(proc, Scalar(refValue - 10 > 0? refValue - 10 : 2), Scalar(refValue + 3), proc);
     //threshold( proc, proc, 0, 255, THRESH_BINARY|THRESH_OTSU );
     //erode(proc, proc, Mat());
-    //imshow("proc", proc);
+    imshow("proc", proc);
     //return elbow;
 
     for(int i = 0; i < 5; i++)

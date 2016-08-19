@@ -5,6 +5,7 @@
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/video/background_segm.hpp"
 #include "opencv2/ximgproc/disparity_filter.hpp"
+#include "skeleton.hpp"
 
 #include <vector>
 #include <string>
@@ -59,7 +60,7 @@ void init_parameter(Rect roi1, Rect roi2, Mat img);
 
 void fillContours(Mat &bw);
 
-double GetDistance(int x, int y, Mat disp8, Mat xyz, Mat &dispMask);
+double GetFaceDistance(int x, int y, Mat disp8, Mat &dispMask);
 
 void detectAndDraw( Mat& img, CascadeClassifier& cascade,
                     double scale, Mat disp, Mat &mask);
