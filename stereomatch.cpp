@@ -1,9 +1,12 @@
 #include "stereomatch.hpp"
 #include "skeleton.hpp"
+#include "motdetect.hpp"
 
 using namespace cv;
 using namespace std;
 
+//motion detect
+motdetect *_motdetect;
 
 static void print_help()
 {
@@ -65,6 +68,8 @@ int main(int argc, char* argv[])
     if( !cascade.load(cascadeName)){ printf("--(!)Error cascade\n"); return -1; };
     if( !cascade2.load(cascadeName2)){ printf("--(!)Error cascade2\n"); return -1; };
     if( !cascade_hand.load(cascadeName3)){ printf("--(!)Error cascade3\n"); return -1; };
+
+    _motdetect = new motdetect();
 
     for( int i = 1; i < argc; i++ )
     {
@@ -276,7 +281,7 @@ int main(int argc, char* argv[])
     
 
     destroyAllWindows();
-
+    //_motdetect = ~motdetect();
     camera0.release();
     camera1.release();
 
@@ -319,7 +324,7 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
     for( vector<Rect>::const_iterator r = faces.begin(); r != faces.end(); r++, i++ )
     {
         BodySkeleton body_skeleton;
-        Mat DT, EDT, Skin, dispMask, people;
+        Mat DT, EDT, Skin, dispMask, people, hand_mot = Mat(img.size(), CV_8UC1, Scalar(0));
 
         //ROI setting
         Point tl, tr, bl, br;
@@ -330,6 +335,7 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
         br = Point (tr.x, bl.y); 
         Rect RoiRect = Rect(tl.x, tl.y, tr.x - tl.x, bl.y - tl.y);
         Mat imgROI = img(RoiRect);
+        Mat handROI = hand_mot(RoiRect);
         Mat dispROI = disp(RoiRect);
 
         dispMask = Mat::zeros(imgROI.size(), CV_8UC1);
@@ -361,6 +367,7 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
 
         if(body_skeleton.lShoulder.x != 0 && body_skeleton.lShoulder.y != 0 )
         {
+            bool find_hand = false;
             DT = findDistTran(dispMask);
             //findSkeleton(dispMask);
             //find right arm
@@ -391,6 +398,11 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
             {
                 line(imgROI, body_skeleton.rElbow,   body_skeleton.rHand, color, 2, 1, 0);
                 circle(imgROI, body_skeleton.rHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
+                rectangle(hand_mot, cvPoint(body_skeleton.rHand.x - radius*0.5 + tl.x, body_skeleton.rHand.y - radius*0.5 + tl.y)
+                        , cvPoint(body_skeleton.rHand.x + radius*0.5 + tl.x, body_skeleton.rHand.y + radius*0.5 + tl.y)
+                        , Scalar(255), CV_FILLED, 8, 0);
+
+                find_hand = true;
             }    
 
             //left hand 
@@ -398,7 +410,14 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
             {
                 line(imgROI, body_skeleton.lElbow,   body_skeleton.lHand, color, 2, 1, 0);
                 circle(imgROI, body_skeleton.lHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
-            }    
+                rectangle(hand_mot, cvPoint(body_skeleton.lHand.x - radius*0.5 + tl.x, body_skeleton.lHand.y - radius*0.5 + tl.y)
+                        , cvPoint(body_skeleton.lHand.x + radius*0.5 + tl.x, body_skeleton.lHand.y + radius*0.5 + tl.y)
+                        , Scalar(255), CV_FILLED, 8, 0);
+                find_hand = true;
+            }
+
+            if(find_hand == true)
+                _motdetect->update_mhi(img, hand_mot ,40);
         }    
 
         rectangle( img, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)),

@@ -94,7 +94,7 @@ void findUpperBody( Mat& img, CascadeClassifier& cascade,
         //|CASCADE_DO_ROUGH_SEARCH
         |CASCADE_SCALE_IMAGE
         ,
-        Size(30, 30) );
+        Size(10, 10) );
     for( vector<Rect>::const_iterator r = upbody.begin(); r != upbody.end(); r++, i++ )
     {
         if(r->width > FaceRect.width && r->height > FaceRect.height)
@@ -130,7 +130,7 @@ Point findArm(Mat EDT, Point lShoulder, int fheight, int findLeftelbow)
     //inRange(proc, Scalar(refValue - 10 > 0? refValue - 10 : 2), Scalar(refValue + 3), proc);
     //threshold( proc, proc, 0, 255, THRESH_BINARY|THRESH_OTSU );
     //erode(proc, proc, Mat());
-    imshow("proc", proc);
+    //imshow("proc", proc);
     //return elbow;
 
     for(int i = 0; i < 5; i++)
@@ -282,11 +282,11 @@ Point findHand(Mat Skin, Mat People, CascadeClassifier& cascade_hand, Point rElb
     }
     //imshow("people", People);
     //find the most far point of the most close area
-    FWidth = FWidth * 1.2;
+    /*FWidth = FWidth * 1.2;
     for(int x = rElbow.x - FWidth > 0 ? rElbow.x - FWidth: 0; x < (rElbow.x + FWidth < Skin.cols-1 ? rElbow.x + FWidth : Skin.cols -1); x++)
         for(int y = rElbow.y - FWidth > 0 ? rElbow.y - FWidth: 0; y < (rElbow.y + FWidth < Skin.rows-1 ? rElbow.y + FWidth : Skin.rows -1); y++)
         {
-            if(mask.at<int>(y,x) > 0)
+            if(labelImage.at<int>(y,x)  == label)
             {    
                 procD =CalcuDistance(rElbow, Point(x,y));
                 if(procD > maxD)
@@ -295,7 +295,7 @@ Point findHand(Mat Skin, Mat People, CascadeClassifier& cascade_hand, Point rElb
                     rHand = Point(x,y);
                 }        
             }    
-        }    
+        }*/    
   //printf("hand %d, %d\n", rHand.x, rHand.y);  
 
   return rHand;
