@@ -148,14 +148,6 @@ int main(int argc, char* argv[])
     camera0 >> img1;
     camera1 >> img2;
 
-
-    int color_mode = alg == STEREO_BM ? 0 : -1;
-    if(color_mode == 0)
-    {
-        cvtColor(img1, img1, CV_RGB2GRAY);
-        cvtColor(img2, img2, CV_RGB2GRAY);
-    }    
-
     if (scale != 1.f)
     {
         Mat temp1, temp2;
@@ -204,17 +196,24 @@ int main(int argc, char* argv[])
         camera0 >> img1;
         camera1 >> img2;
 
-        if(color_mode == 0)
-        {
-           cvtColor(img1, img1, CV_RGB2GRAY);
-           cvtColor(img2, img2, CV_RGB2GRAY);
-        }
-
         remap(img1, img1r, map11, map12, INTER_LINEAR);
         remap(img2, img2r, map21, map22, INTER_LINEAR);
 
         img1 = img1r;
         img2 = img2r;
+
+
+        Mat disp, disp8, disp32F;
+
+        sgbm->compute(img1, img2, disp);
+
+        if( alg != STEREO_VAR )
+        {    
+            disp.convertTo(disp8, CV_8U, 255/(numberOfDisparities*16.));
+            disp.convertTo(disp32F, CV_32F, 1./16);
+        }    
+        else
+            disp.convertTo(disp8, CV_8U);
 
         /*fg bg segment*/
         if(open_bg_model)
@@ -227,27 +226,11 @@ int main(int argc, char* argv[])
             fillContours(fgmask1);
 
             FrameCount++;
+            disp8 = disp8 & fgmask1;
             if(FrameCount > 20)
                 update_bg_model = false;
         }
 
-        Mat disp, disp8, disp32F;
-
-        if( alg == STEREO_BM )
-            bm->compute(img1, img2, disp);
-        else if( alg == STEREO_SGBM || alg == STEREO_HH )
-            sgbm->compute(img1, img2, disp);
-
-        if( alg != STEREO_VAR )
-        {    
-            disp.convertTo(disp8, CV_8U, 255/(numberOfDisparities*16.));
-            disp.convertTo(disp32F, CV_32F, 1./16);
-        }    
-        else
-            disp.convertTo(disp8, CV_8U);
-
-        if(open_bg_model == true)
-          disp8 = disp8 & fgmask1;
         inRange(disp8, Scalar(Thres, Thres, Thres), Scalar(256, 256, 256), fgmask1);
         disp8 = disp8 & fgmask1;
         flip(disp8, disp8, 1);
@@ -304,14 +287,6 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
     int i = 0;
     char str[30];
     vector<Rect> faces;
-    const static Scalar colors[] =  { CV_RGB(0,0,255),
-        CV_RGB(0,128,255),
-        CV_RGB(0,255,255),
-        CV_RGB(0,255,0),
-        CV_RGB(255,128,0),
-        CV_RGB(255,255,0),
-        CV_RGB(255,0,0),
-        CV_RGB(255,0,255)} ;
     Mat gray, smallImg( cvRound (img.rows/scale), cvRound(img.cols/scale), CV_8UC1 );
 
     cvtColor( img, gray, COLOR_BGR2GRAY );
@@ -543,21 +518,7 @@ bool read_file(const char* filename)
 
 void init_parameter(Rect roi1, Rect roi2, Mat img)
 {
-
     numberOfDisparities = numberOfDisparities > 0 ? numberOfDisparities : ((img.size().width/8) + 15) & -16;
-
-    bm->setROI1(roi1);
-    bm->setROI2(roi2);
-    bm->setPreFilterCap(31);
-    bm->setBlockSize(SADWindowSize > 0 ? SADWindowSize : 9);
-    bm->setMinDisparity(0);
-    bm->setNumDisparities(numberOfDisparities);
-    bm->setTextureThreshold(10);
-    bm->setUniquenessRatio(15);
-    bm->setSpeckleWindowSize(100);
-    bm->setSpeckleRange(32);
-    bm->setDisp12MaxDiff(1);
-
     sgbm->setPreFilterCap(63);
     int sgbmWinSize = SADWindowSize > 0 ? SADWindowSize : 3;
     sgbm->setBlockSize(sgbmWinSize);

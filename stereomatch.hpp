@@ -27,7 +27,6 @@ CascadeClassifier cascade;
 CascadeClassifier cascade2;
 CascadeClassifier cascade_hand;
 
-Ptr<StereoBM> bm = StereoBM::create(16,9);
 Ptr<StereoSGBM> sgbm = StereoSGBM::create(0,16,3);
 int SADWindowSize = 0, numberOfDisparities = 0;
 enum { STEREO_BM=0, STEREO_SGBM=1, STEREO_HH=2, STEREO_VAR=3 };
@@ -35,6 +34,15 @@ int alg = STEREO_SGBM;
 string cascadeName = "1.xml";
 string cascadeName2 = "haarcascade_mcs_upperbody.xml";
 string cascadeName3 = "fist.xml";
+
+const static Scalar colors[] =  { CV_RGB(0,0,255),
+    CV_RGB(0,128,255),
+    CV_RGB(0,255,255),
+    CV_RGB(0,255,0),
+    CV_RGB(255,128,0),
+    CV_RGB(255,255,0),
+    CV_RGB(255,0,0),
+    CV_RGB(255,0,255)} ;
 
 static void saveXYZ(const char* filename, const Mat& mat);
 
