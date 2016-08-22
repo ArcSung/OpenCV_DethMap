@@ -282,7 +282,7 @@ Point findHand(Mat Skin, Mat People, CascadeClassifier& cascade_hand, Point rElb
     }
     //imshow("people", People);
     //find the most far point of the most close area
-    /*FWidth = FWidth * 1.2;
+    FWidth = FWidth * 1.2;
     for(int x = rElbow.x - FWidth > 0 ? rElbow.x - FWidth: 0; x < (rElbow.x + FWidth < Skin.cols-1 ? rElbow.x + FWidth : Skin.cols -1); x++)
         for(int y = rElbow.y - FWidth > 0 ? rElbow.y - FWidth: 0; y < (rElbow.y + FWidth < Skin.rows-1 ? rElbow.y + FWidth : Skin.rows -1); y++)
         {
@@ -295,7 +295,7 @@ Point findHand(Mat Skin, Mat People, CascadeClassifier& cascade_hand, Point rElb
                     rHand = Point(x,y);
                 }        
             }    
-        }*/    
+        }    
   //printf("hand %d, %d\n", rHand.x, rHand.y);  
 
   return rHand;

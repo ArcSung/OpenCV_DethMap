@@ -8,6 +8,18 @@ using namespace std;
 //motion detect
 motdetect *_motdetect;
 
+//temp shoulder point
+Point lastRShoulder;
+Point lastLShoulder;
+Point lastRHand;
+Point lastLHand;
+
+Rect bgmask;
+
+int ShoulderCount = 20;
+int RHandCount = 5;
+int LHandCount = 5;
+
 static void print_help()
 {
     printf("\nDemo stereo matching converting L and R images into disparity and point clouds\n");
@@ -178,9 +190,6 @@ int main(int argc, char* argv[])
     Mat img1r, img2r;
 
     //fg bg segment
-    Ptr<BackgroundSubtractor> bg_model2 =  
-            createBackgroundSubtractorMOG2().dynamicCast<BackgroundSubtractor>();
-
     Ptr<BackgroundSubtractor> bg_model1 =  
             createBackgroundSubtractorMOG2().dynamicCast<BackgroundSubtractor>();
     Mat fgmask1, fgimg1;
@@ -365,9 +374,17 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
         body_skeleton.rShoulder = Point(0, 0);
         findUpperBody( imgROI, cascade2, scale, Rect(r->x, r->y, r->width, r->height), body_skeleton);
 
+        if(ShoulderCount < 20 && body_skeleton.lShoulder.x == 0 && body_skeleton.lShoulder.y == 0 )
+        {    
+            body_skeleton.rShoulder = lastRShoulder;
+            body_skeleton.lShoulder = lastLShoulder;
+        }  
+
         if(body_skeleton.lShoulder.x != 0 && body_skeleton.lShoulder.y != 0 )
         {
-            bool find_hand = false;
+            lastRShoulder = body_skeleton.rShoulder;
+            lastLShoulder = body_skeleton.lShoulder;
+            ShoulderCount = 0;
             DT = findDistTran(dispMask);
             //findSkeleton(dispMask);
             //find right arm
@@ -402,7 +419,20 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
                         , cvPoint(body_skeleton.rHand.x + radius*0.5 + tl.x, body_skeleton.rHand.y + radius*0.5 + tl.y)
                         , Scalar(255), CV_FILLED, 8, 0);
 
-                find_hand = true;
+                lastRHand = body_skeleton.rHand;
+                RHandCount = 0;
+            }
+            else
+            {
+                if(RHandCount < 5)
+                {    
+                    body_skeleton.rHand = lastRHand;
+                    line(imgROI, body_skeleton.rElbow,   body_skeleton.rHand, color, 2, 1, 0);
+                    circle(imgROI, body_skeleton.rHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
+                    rectangle(hand_mot, cvPoint(body_skeleton.rHand.x - radius*0.5 + tl.x, body_skeleton.rHand.y - radius*0.5 + tl.y)
+                        , cvPoint(body_skeleton.rHand.x + radius*0.5 + tl.x, body_skeleton.rHand.y + radius*0.5 + tl.y)
+                        , Scalar(255), CV_FILLED, 8, 0);
+                }  
             }    
 
             //left hand 
@@ -413,11 +443,23 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
                 rectangle(hand_mot, cvPoint(body_skeleton.lHand.x - radius*0.5 + tl.x, body_skeleton.lHand.y - radius*0.5 + tl.y)
                         , cvPoint(body_skeleton.lHand.x + radius*0.5 + tl.x, body_skeleton.lHand.y + radius*0.5 + tl.y)
                         , Scalar(255), CV_FILLED, 8, 0);
-                find_hand = true;
+                lastLHand = body_skeleton.lHand;
+                LHandCount = 0;
             }
+            else
+            {
+                if(LHandCount < 5)
+                {    
+                    body_skeleton.lHand = lastLHand;
+                    line(imgROI, body_skeleton.rElbow,   body_skeleton.rHand, color, 2, 1, 0);
+                    circle(imgROI, body_skeleton.rHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
+                    rectangle(hand_mot, cvPoint(body_skeleton.rHand.x - radius*0.5 + tl.x, body_skeleton.rHand.y - radius*0.5 + tl.y)
+                        , cvPoint(body_skeleton.rHand.x + radius*0.5 + tl.x, body_skeleton.rHand.y + radius*0.5 + tl.y)
+                        , Scalar(255), CV_FILLED, 8, 0);
+                }  
+            }    
 
-            if(find_hand == true)
-                _motdetect->update_mhi(img, hand_mot ,40);
+            _motdetect->update_mhi(img, hand_mot ,30);
         }    
 
         rectangle( img, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)),
@@ -432,6 +474,9 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
         }  
         putText(img, str, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)), CV_FONT_HERSHEY_DUPLEX, 1, CV_RGB(0, 255, 0));
     }
+    ShoulderCount++;
+    RHandCount++;
+    LHandCount++;
 }
 
 double GetFaceDistance(int x, int y, Mat disp8, Mat &dispMask)
