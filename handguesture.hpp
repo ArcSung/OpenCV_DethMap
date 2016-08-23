@@ -5,4 +5,4 @@
 using namespace std;
 using namespace cv;
 
-void GestureDetection(Mat &fore, Mat &frame);
+void GestureDetection(Mat &fore, Mat &frame, Point &hand, int FaceHeight);

@@ -31,7 +31,7 @@ pair<Point,double> circleFromPoints(Point p1, Point p2, Point p3)
 	return make_pair(Point(centerx,centery),radius);
 }
 
-void GestureDetection(Mat &fore, Mat &frame)
+void GestureDetection(Mat &fore, Mat &frame, Point &hand, int FaceHeight)
 {
 
 	vector<vector<Point> > contours;
@@ -52,7 +52,7 @@ void GestureDetection(Mat &fore, Mat &frame)
 		vector<vector<int> > hullsI(1);
 		convexHull(Mat(tcontours[0]),hulls[0],false);
 		convexHull(Mat(tcontours[0]),hullsI[0],false);
-		drawContours(frame,hulls,-1,cv::Scalar(0,255,0),2);
+		//drawContours(frame,hulls,-1,cv::Scalar(0,255,0),2);
 
 		//Find minimum area rectangle to enclose hand
 		RotatedRect rect=minAreaRect(Mat(tcontours[0]));
@@ -105,7 +105,7 @@ void GestureDetection(Mat &fore, Mat &frame)
                 }
 
                 //Find avg palm centers for the last few frames to stabilize its centers, also find the avg radius
-                palm_centers.push_back(soln_circle);
+                /*palm_centers.push_back(soln_circle);
                 if(palm_centers.size()>10)
                     palm_centers.erase(palm_centers.begin());
                             
@@ -118,13 +118,16 @@ void GestureDetection(Mat &fore, Mat &frame)
                 }
                 palm_center.x/=palm_centers.size();
                 palm_center.y/=palm_centers.size();
-                radius/=palm_centers.size();
+                radius/=palm_centers.size();*/
 
                 //Draw the palm center and the palm circle
                 //The size of the palm gives the depth of the hand
+                Point palm_center = soln_circle.first;
+                double radius = soln_circle.second;
+
                 circle(frame,palm_center,5,Scalar(0, 0, 255),3);
                 circle(frame,palm_center,radius,Scalar(0, 0, 255),2);
-
+                hand = palm_center;
                 //Detect fingers by finding points that form an almost isosceles triangle with certain thesholds
                 int no_of_fingers=0;
                 for(int j=0;j<defects.size();j++)
