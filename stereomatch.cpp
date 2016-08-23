@@ -344,6 +344,8 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
         Skin = findSkinColor(people);
         body_skeleton.head = Point(center.x, center.y);
         body_skeleton.neck = Point(center.x, center.y + r->height*0.6);
+        body_skeleton.HeadWidth = r->width;
+        body_skeleton.HeadHeight = r->height;
         body_skeleton.lShoulder = Point(0, 0);
         body_skeleton.rShoulder = Point(0, 0);
         findUpperBody( imgROI, cascade2, scale, Rect(r->x, r->y, r->width, r->height), body_skeleton);
@@ -363,14 +365,14 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
             //findSkeleton(dispMask);
             //find right arm
             //EDT = CalcuEDT(DT, body_skeleton.rShoulder);
-            body_skeleton.rElbow = findArm(DT, body_skeleton.rShoulder, r->width*0.9, 0);
-            body_skeleton.rHand = findHand(imgROI, Skin, people, cascade_hand, body_skeleton.rElbow, body_skeleton.head, r->height*1.5);
+            body_skeleton.rElbow = findArm(DT, body_skeleton, 0);
+            body_skeleton.rHand = findHand(imgROI, Skin, people, cascade_hand, body_skeleton, 0);
 
             //waitKey(0);
             //find left arm
             //EDT = CalcuEDT(EDT, body_skeleton.lShoulder);
-            body_skeleton.lElbow = findArm(DT, body_skeleton.lShoulder, r->width*0.9, 1);
-            body_skeleton.lHand = findHand(imgROI, Skin, people, cascade_hand, body_skeleton.lElbow, body_skeleton.head, r->height*1.5);
+            body_skeleton.lElbow = findArm(DT, body_skeleton, 1);
+            body_skeleton.lHand = findHand(imgROI, Skin, people, cascade_hand, body_skeleton, 1);
 
             line(imgROI, body_skeleton.head,   body_skeleton.neck, color, 2, 1, 0);
             line(imgROI, body_skeleton.neck,   body_skeleton.rShoulder, color, 2, 1, 0);

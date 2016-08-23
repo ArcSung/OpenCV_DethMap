@@ -179,11 +179,17 @@ void findUpperBody( Mat& img, CascadeClassifier& cascade,
 }
 
 
-Point findArm(Mat EDT, Point lShoulder, int fheight, int findLeftelbow)
+Point findArm(Mat EDT, BodySkeleton &body_skeleton, int findLeftelbow)
 {
+    int fheight = body_skeleton.HeadHeight*0.9;
     float Slope = 0;
-    float refValue = EDT.at<unsigned char>(lShoulder.x, lShoulder.y);
-    Point elbow = lShoulder;
+    //float refValue = EDT.at<unsigned char>(lShoulder.x, lShoulder.y);
+    Point elbow;
+    if(findLeftelbow == 0)
+        elbow = body_skeleton.rShoulder;
+    else
+        elbow = body_skeleton.lShoulder;
+
     Mat proc;
     GaussianBlur(EDT, proc, Size(5, 5), 0);
     //inRange(proc, Scalar(refValue - 10 > 0? refValue - 10 : 2), Scalar(refValue + 3), proc);
@@ -206,7 +212,7 @@ Point findArm(Mat EDT, Point lShoulder, int fheight, int findLeftelbow)
                 for(int y = elbow.y + fheight/4 > EDT.rows - 1 ? EDT.rows - 1 : elbow.y + fheight/4; y > (elbow.y - fheight/4 < 0 ? 0 : elbow.y - fheight/4); y--)
                 {
                   if(proc.at<unsigned char>(y, x) != 0
-                    && x > lShoulder.x)
+                    && x > body_skeleton.lShoulder.x)
                   {
                        search = Point(x, y);
                        find = true;
@@ -233,7 +239,7 @@ Point findArm(Mat EDT, Point lShoulder, int fheight, int findLeftelbow)
                 for(int y = elbow.y + fheight/4 > EDT.rows - 1 ? EDT.rows - 1 : elbow.y + fheight/4; y > (elbow.y - fheight/4 < 0 ? 0 : elbow.y - fheight/4); y--)
                 {
                   if(proc.at<unsigned char>(y, x) != 0
-                    && x < lShoulder.x)
+                    && x < body_skeleton.lShoulder.x)
                   {
                        search = Point(x, y);
                        find = true;
@@ -267,9 +273,10 @@ Point findArm(Mat EDT, Point lShoulder, int fheight, int findLeftelbow)
     return elbow;
 }    
 
-Point findHand(Mat &img,  Mat Skin, Mat People, CascadeClassifier& cascade_hand, Point rElbow, Point FacePoint, int FWidth)
+Point findHand(Mat &img,  Mat Skin, Mat People, CascadeClassifier& cascade_hand, BodySkeleton &body_skeleton, int RightOrLeft)
 {
-    Point rHand = rElbow;
+    int FWidth = body_skeleton.HeadWidth*1.5;
+    Point rHand;
     Mat labelImage(Skin.size(), CV_32S);
     Mat mask(Skin.size(), CV_8UC1, Scalar(0));
     Mat handimg(Skin.size(), CV_8UC3, Scalar(0));
@@ -278,17 +285,21 @@ Point findHand(Mat &img,  Mat Skin, Mat People, CascadeClassifier& cascade_hand,
     int minD = FWidth;
     int maxD = 0;
     int procD = 0;
-    int facelabel = labelImage.at<int>(FacePoint.y, FacePoint.x);
+    int facelabel = labelImage.at<int>(body_skeleton.head.y, body_skeleton.head.x);
     vector<Point2f> ConnerPoint;
     //normalize(labelImage, labelImage, 0, 255, NORM_MINMAX, CV_8U);
+    if(RightOrLeft == 0)
+        rHand = body_skeleton.rElbow;
+    else
+        rHand = body_skeleton.lElbow;
 
     //find the most close area
-    for(int x = rElbow.x - FWidth > 0 ? rElbow.x - FWidth: 0; x < (rElbow.x + FWidth < Skin.cols-1 ? rElbow.x + FWidth : Skin.cols -1); x++)
-        for(int y = rElbow.y - FWidth > 0 ? rElbow.y - FWidth: 0; y < (rElbow.y + FWidth < Skin.rows-1 ? rElbow.y + FWidth : Skin.rows -1); y++)
+    for(int x = rHand.x - FWidth > 0 ? rHand.x - FWidth: 0; x < (rHand.x + FWidth < Skin.cols-1 ? rHand.x + FWidth : Skin.cols -1); x++)
+        for(int y = rHand.y - FWidth > 0 ? rHand.y - FWidth: 0; y < (rHand.y + FWidth < Skin.rows-1 ? rHand.y + FWidth : Skin.rows -1); y++)
         {
             if(labelImage.at<int>(y,x) != 0 && labelImage.at<int>(y,x) != facelabel)
             {    
-                procD =CalcuDistance(rElbow, Point(x,y));
+                procD =CalcuDistance(rHand, Point(x,y));
                 if(procD < minD)
                 {    
                     minD = procD;

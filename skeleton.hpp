@@ -24,6 +24,8 @@ class BodySkeleton
     Point lElbow;
     Point rHand;
     Point lHand;
+    int HeadWidth;
+    int HeadHeight;
 
 };
 
@@ -41,6 +43,6 @@ Mat CalcuEDT(Mat DT, Point ref);
 
 Mat findSkinColor(Mat src);
 
-Point findArm(Mat EDT, Point lShoulder, int fheight, int findLeftelbow);
+Point findArm(Mat EDT, BodySkeleton &body_skeleton, int findLeftelbow);
 
-Point findHand(Mat &img,  Mat Skin, Mat People, CascadeClassifier& cascade_hand, Point rElbow, Point FacePoint, int FWidth);
+Point findHand(Mat &img,  Mat Skin, Mat People, CascadeClassifier& cascade_hand, BodySkeleton &body_skeleton, int RightOrLeft);
