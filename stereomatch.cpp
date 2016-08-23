@@ -231,8 +231,7 @@ int main(int argc, char* argv[])
                 update_bg_model = false;
         }
 
-        inRange(disp8, Scalar(Thres, Thres, Thres), Scalar(256, 256, 256), fgmask1);
-        disp8 = disp8 & fgmask1;
+        inRange(disp8, Scalar(Thres, Thres, Thres), Scalar(256, 256, 256), disp8);
         flip(disp8, disp8, 1);
 
         flip(img2, img2, 1);
@@ -365,13 +364,13 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
             //find right arm
             //EDT = CalcuEDT(DT, body_skeleton.rShoulder);
             body_skeleton.rElbow = findArm(DT, body_skeleton.rShoulder, r->width*0.9, 0);
-            body_skeleton.rHand = findHand(Skin, people, cascade_hand, body_skeleton.rElbow, body_skeleton.head, r->height*1.5);
+            body_skeleton.rHand = findHand(imgROI, Skin, people, cascade_hand, body_skeleton.rElbow, body_skeleton.head, r->height*1.5);
 
             //waitKey(0);
             //find left arm
             //EDT = CalcuEDT(EDT, body_skeleton.lShoulder);
             body_skeleton.lElbow = findArm(DT, body_skeleton.lShoulder, r->width*0.9, 1);
-            body_skeleton.lHand = findHand(Skin, people, cascade_hand, body_skeleton.lElbow, body_skeleton.head, r->height*1.5);
+            body_skeleton.lHand = findHand(imgROI, Skin, people, cascade_hand, body_skeleton.lElbow, body_skeleton.head, r->height*1.5);
 
             line(imgROI, body_skeleton.head,   body_skeleton.neck, color, 2, 1, 0);
             line(imgROI, body_skeleton.neck,   body_skeleton.rShoulder, color, 2, 1, 0);
@@ -479,22 +478,6 @@ double GetFaceDistance(int x, int y, Mat disp8, Mat &dispMask)
    } 
    else
     return 0;   
-}
-
-static void saveXYZ(const char* filename, const Mat& mat)
-{
-    const double max_z = 1.0e4;
-    FILE* fp = fopen(filename, "wt");
-    for(int y = 0; y < mat.rows; y++)
-    {
-        for(int x = 0; x < mat.cols; x++)
-        {
-            Vec3f point = mat.at<Vec3f>(y, x);
-            if(fabs(point[2] - max_z) < FLT_EPSILON || fabs(point[2]) > max_z) continue;
-            fprintf(fp, "%f %f %f\n",  point[0], point[1], point[2]);
-        }
-    }
-    fclose(fp);
 }
 
 bool read_file(const char* filename)

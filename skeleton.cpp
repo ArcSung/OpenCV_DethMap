@@ -1,7 +1,66 @@
 #include "skeleton.hpp"
+#include "handguesture.hpp"
 
 using namespace cv;
 using namespace std;
+
+bool FindHandCorner(Mat bin_img, std::vector<Point2f> &ConnerPoint)
+{
+    std::vector<std::vector<Point> > contours;
+    std::vector<Vec4i> hierarchy;
+    Point2f L1, L2;
+
+    findContours(bin_img,
+    contours,
+    hierarchy,
+    RETR_TREE,
+    CHAIN_APPROX_SIMPLE);
+
+    int MaxSize = 0, MaxSizeId = 0;
+
+    if(contours.size() == 0)
+        return false;
+
+    //Find the max contour
+    for( int i = 0; i< contours.size(); i++ ) // iterate through each contour. 
+    {
+        double a=contourArea( contours[i],false);  //  Find the area of contour
+        if(a>MaxSize && a < (bin_img.cols*bin_img.rows)/4)
+        {
+            MaxSize=a;
+            MaxSizeId=i;                //Store the index of largest contour
+        }
+    } 
+
+    if(MaxSize < 100)
+        return false;
+
+    vector< vector< Point> > contours_poly(contours.size());
+    approxPolyDP( Mat(contours[MaxSizeId]), contours_poly[MaxSizeId], 3, true ); // let contours more smooth
+  
+    //find 4 conner in contour
+    int tlx = bin_img.cols, tly = bin_img.rows, brx = 0, bry = 0;
+
+    for(int j=0;j<contours_poly[MaxSizeId].size();j++)
+    {
+        if(tlx < contours_poly[MaxSizeId][j].x)
+            tlx = contours_poly[MaxSizeId][j].x;
+        if(tly < contours_poly[MaxSizeId][j].y)
+            tly = contours_poly[MaxSizeId][j].y;
+        if(brx >  contours_poly[MaxSizeId][j].x)
+            brx = contours_poly[MaxSizeId][j].x;
+        if(bry > contours_poly[MaxSizeId][j].y)
+            bry = contours_poly[MaxSizeId][j].y;
+    }
+
+    L1 = Point2f(tlx, tly);
+    L2 = Point2f(brx, bry);
+
+    ConnerPoint.push_back(L1);
+    ConnerPoint.push_back(L2);
+
+    return true;
+}
 
 double CalcuDistance(Point P1, Point P2)
 {
@@ -208,11 +267,11 @@ Point findArm(Mat EDT, Point lShoulder, int fheight, int findLeftelbow)
     return elbow;
 }    
 
-Point findHand(Mat Skin, Mat People, CascadeClassifier& cascade_hand, Point rElbow, Point FacePoint, int FWidth)
+Point findHand(Mat &img,  Mat Skin, Mat People, CascadeClassifier& cascade_hand, Point rElbow, Point FacePoint, int FWidth)
 {
     Point rHand = rElbow;
     Mat labelImage(Skin.size(), CV_32S);
-    Mat mask(Skin.size(), CV_8UC1);
+    Mat mask(Skin.size(), CV_8UC1, Scalar(0));
     Mat handimg(Skin.size(), CV_8UC3, Scalar(0));
     int nLabels = connectedComponents(Skin, labelImage, 8);
     int label;
@@ -220,6 +279,8 @@ Point findHand(Mat Skin, Mat People, CascadeClassifier& cascade_hand, Point rElb
     int maxD = 0;
     int procD = 0;
     int facelabel = labelImage.at<int>(FacePoint.y, FacePoint.x);
+    vector<Point2f> ConnerPoint;
+    //normalize(labelImage, labelImage, 0, 255, NORM_MINMAX, CV_8U);
 
     //find the most close area
     for(int x = rElbow.x - FWidth > 0 ? rElbow.x - FWidth: 0; x < (rElbow.x + FWidth < Skin.cols-1 ? rElbow.x + FWidth : Skin.cols -1); x++)
@@ -236,67 +297,39 @@ Point findHand(Mat Skin, Mat People, CascadeClassifier& cascade_hand, Point rElb
             }    
         } 
 
-    inRange(labelImage, Scalar(label), Scalar(label), mask);
-    Mat element_mask = Mat(Size(5, 5), CV_8UC1, Scalar(1));
-
-    /*Mat temp = Mat(mask.size(), mask.type());
-    vector<vector<Point> > contours;
-    vector<Vec4i> hierarchy;
-    findContours(mask, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0,0));
-
-    for (vector<vector<Point> >::iterator it = contours.begin(); it!=contours.end(); )
+    if(label != 0)
     {
-        if (it->size()>50)
-            drawContours(temp, contours, 0, Scalar(255), CV_FILLED, 8, hierarchy);
-        ++it;
-    }*/
+        inRange(labelImage, Scalar(label), Scalar(label), mask);
+        Mat element_mask = Mat(Size(5, 5), CV_8UC1, Scalar(1));
+        dilate(mask, mask, element_mask);
+        People.copyTo(handimg, mask);
+        //imshow("handimg", handimg);
+        double scale = 1.0;
 
-    dilate(mask, mask, element_mask);
-    People.copyTo(handimg, mask);
-    //imshow("hand", handimg);
-    double scale = 1.0;
+        vector<Rect> hand;
+        Mat gray, smallImg( cvRound (Skin.rows/scale), cvRound(Skin.cols/scale), CV_8UC1 );
+        cvtColor( handimg, gray, COLOR_BGR2GRAY );
+        resize( gray, smallImg, smallImg.size(), 0, 0, INTER_LINEAR );
+        equalizeHist( smallImg, smallImg );
 
-    vector<Rect> hand;
-    Mat gray, smallImg( cvRound (Skin.rows/scale), cvRound(Skin.cols/scale), CV_8UC1 );
-    cvtColor( handimg, gray, COLOR_BGR2GRAY );
-    resize( gray, smallImg, smallImg.size(), 0, 0, INTER_LINEAR );
-    equalizeHist( smallImg, smallImg );
-    //imshow("smallImg", smallImg);
+        cascade_hand.detectMultiScale( smallImg, hand,
+            1.1, 2, 0
+            |CASCADE_FIND_BIGGEST_OBJECT
+            //|CASCADE_DO_ROUGH_SEARCH
+            |CASCADE_SCALE_IMAGE
+            ,Size(10, 10) );
 
-    cascade_hand.detectMultiScale( smallImg, hand,
-        1.1, 2, 0
-        |CASCADE_FIND_BIGGEST_OBJECT
-        //|CASCADE_DO_ROUGH_SEARCH
-        |CASCADE_SCALE_IMAGE
-        ,
-        Size(10, 10) );
-
-    for( vector<Rect>::const_iterator r = hand.begin(); r != hand.end(); r++)
-    {
-        rHand.x = cvRound((r->x + r->width*0.5)*scale);
-        rHand.y = cvRound((r->y + r->height*0.5)*scale);
-        return rHand;
-        /*rectangle( People, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)),
+        for( vector<Rect>::const_iterator r = hand.begin(); r != hand.end(); r++)
+        {
+            rHand.x = cvRound((r->x + r->width*0.5)*scale);
+            rHand.y = cvRound((r->y + r->height*0.5)*scale);
+            return rHand;
+            /*rectangle( People, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)),
                     cvPoint(cvRound((r->x + r->width-1)*scale), cvRound((r->y + r->height-1)*scale)),
                     Scalar(0, 255, 255), 3, 8, 0);*/
-    }
-    //imshow("people", People);
-    //find the most far point of the most close area
-    FWidth = FWidth * 1.2;
-    for(int x = rElbow.x - FWidth > 0 ? rElbow.x - FWidth: 0; x < (rElbow.x + FWidth < Skin.cols-1 ? rElbow.x + FWidth : Skin.cols -1); x++)
-        for(int y = rElbow.y - FWidth > 0 ? rElbow.y - FWidth: 0; y < (rElbow.y + FWidth < Skin.rows-1 ? rElbow.y + FWidth : Skin.rows -1); y++)
-        {
-            if(labelImage.at<int>(y,x)  == label)
-            {    
-                procD =CalcuDistance(rElbow, Point(x,y));
-                if(procD > maxD)
-                {    
-                    maxD = procD;
-                    rHand = Point(x,y);
-                }        
-            }    
-        }    
-  //printf("hand %d, %d\n", rHand.x, rHand.y);  
+        }
+        GestureDetection(mask, img);
+    }    
 
   return rHand;
 }    

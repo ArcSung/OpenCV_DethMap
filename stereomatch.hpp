@@ -44,8 +44,6 @@ const static Scalar colors[] =  { CV_RGB(0,0,255),
     CV_RGB(255,0,0),
     CV_RGB(255,0,255)} ;
 
-static void saveXYZ(const char* filename, const Mat& mat);
-
 bool read_file(const char* filename);
 
 void init_parameter(Rect roi1, Rect roi2, Mat img);
