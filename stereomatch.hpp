@@ -31,9 +31,9 @@ Ptr<StereoSGBM> sgbm = StereoSGBM::create(0,16,3);
 int SADWindowSize = 0, numberOfDisparities = 0;
 enum { STEREO_BM=0, STEREO_SGBM=1, STEREO_HH=2, STEREO_VAR=3 };
 int alg = STEREO_SGBM;
-string cascadeName = "1.xml";
-string cascadeName2 = "haarcascade_mcs_upperbody.xml";
-string cascadeName3 = "fist.xml";
+string cascadeName = "haar/1.xml";
+string cascadeName2 = "haar/haarcascade_mcs_upperbody.xml";
+string cascadeName3 = "haar/fist.xml";
 
 const static Scalar colors[] =  { CV_RGB(0,0,255),
     CV_RGB(0,128,255),

@@ -77,7 +77,7 @@ void  motdetect::update_mhi(const Mat& img, Mat& dst, int diff_threshold)
             comp_rect = regions[i];
             if (comp_rect.width + comp_rect.height < 100) // reject very small components
                 continue;
-            color = Scalar(0, 0, 255);
+            color = Scalar(255, 0, 0);
             magnitude = 30;
         }
 

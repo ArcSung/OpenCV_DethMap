@@ -68,6 +68,7 @@ void GestureDetection(Mat &fore, Mat &frame, Point &hand, int FaceHeight)
 			convexityDefects(tcontours[0], hullsI[0], defects);
 			if(defects.size()>=3)
             {
+                int palm_counter = 0;
 				vector<Point> palm_points;
                 for(int j=0;j<defects.size();j++)
                 {
@@ -75,16 +76,21 @@ void GestureDetection(Mat &fore, Mat &frame, Point &hand, int FaceHeight)
 					int endidx=defects[j][1]; Point ptEnd( tcontours[0][endidx] );
 					int faridx=defects[j][2]; Point ptFar( tcontours[0][faridx] );
 					//Sum up all the hull and defect points to compute average
-					rough_palm_center+=ptFar+ptStart+ptEnd;
-					palm_points.push_back(ptFar);
-					palm_points.push_back(ptStart);
-					palm_points.push_back(ptEnd);
+                    if(dist(ptFar, ptEnd) > FaceHeight/4 && ptEnd.y < hand.y + FaceHeight/2)
+                    {    
+                        rough_palm_center+=ptFar+ptStart+ptEnd;
+                        palm_points.push_back(ptFar);
+                        palm_points.push_back(ptStart);
+                        palm_points.push_back(ptEnd);
+                        palm_counter++;
+                    }
 				}
-
+                if(palm_counter < 1)
+                    continue;
                 //Get palm center by 1st getting the average of all defect points, this is the rough palm center,
                 //Then U chose the closest 3 points ang get the circle radius and center formed from them which is the palm center.
-                rough_palm_center.x/=defects.size()*3;
-                rough_palm_center.y/=defects.size()*3;
+                rough_palm_center.x/=palm_counter*3;
+                rough_palm_center.y/=palm_counter*3;
                 Point closest_pt=palm_points[0];
                 vector<pair<double,int> > distvec;
                 for(int i=0;i<palm_points.size();i++)
@@ -100,7 +106,7 @@ void GestureDetection(Mat &fore, Mat &frame, Point &hand, int FaceHeight)
                     Point p2=palm_points[distvec[i+1].second];
                     Point p3=palm_points[distvec[i+2].second];
                     soln_circle=circleFromPoints(p1,p2,p3);//Final palm center,radius
-                    if(soln_circle.second!=0)
+                    if(soln_circle.second!=0 && fore.at<unsigned char>(soln_circle.first.y, soln_circle.first.x))
                         break;
                 }
 
@@ -130,29 +136,33 @@ void GestureDetection(Mat &fore, Mat &frame, Point &hand, int FaceHeight)
                 hand = palm_center;
                 //Detect fingers by finding points that form an almost isosceles triangle with certain thesholds
                 int no_of_fingers=0;
-                for(int j=0;j<defects.size();j++)
+                for(int j=0;j<palm_points.size();j=j+3)
                 {
-                    int startidx=defects[j][0]; Point ptStart( tcontours[0][startidx] );
-                    int endidx=defects[j][1]; Point ptEnd( tcontours[0][endidx] );
-                    int faridx=defects[j][2]; Point ptFar( tcontours[0][faridx] );
+                    //int startidx=defects[j][0]; Point ptStart( tcontours[0][startidx] );
+                    //int endidx=defects[j][1]; Point ptEnd( tcontours[0][endidx] );
+                    //int faridx=defects[j][2]; Point ptFar( tcontours[0][faridx] );
+                    Point ptFar( palm_points[j] );
+                    Point ptStart( palm_points[j + 1] );
+                    Point ptEnd( palm_points[j + 2] );
+                    //circle(frame, ptFar, 5,Scalar(0,0,255),3);
+                    //circle(frame, ptStart, 5,Scalar(255,0,0),3);
+                    //circle(frame, ptEnd, 5,Scalar(0,255,0),3);
                     //X o--------------------------o Y
                     double Xdist=sqrt(dist(palm_center,ptFar));
                     double Ydist=sqrt(dist(palm_center,ptStart));
                     double length=sqrt(dist(ptFar,ptStart));
+                    double length2=sqrt(dist(ptEnd,palm_center));
 
-#ifdef DeBug
-                    circle(frame, ptStart, 5,Scalar(255,0,0),3);
-                    circle(frame, ptEnd, 5,Scalar(0,255,0),3);
-                    circle(frame, ptFar, 5,Scalar(0,0,255),3);
-#endif                    
                     double retLength=sqrt(dist(ptEnd,ptFar));
                     //Play with these thresholds to improve performance
-                    if(length<=3*radius&&Ydist>=0.4*radius&&length>=10&&retLength>=10&&max(length,retLength)/min(length,retLength)>=0.8)
+                    if(length<=2*radius&&Ydist>=0.4*radius&&length>=10&&retLength>=10&&max(length,retLength)/min(length,retLength)>=0.8 
+                            && ptEnd.y < palm_center.y + radius
+                            && length2 > radius*1.4)
                         if(min(Xdist,Ydist)/max(Xdist,Ydist)<=0.8)
                         {
                             if((Xdist>=0.1*radius&&Xdist<=1.3*radius&&Xdist<Ydist)||(Ydist>=0.1*radius&&Ydist<=1.3*radius&&Xdist>Ydist))
                             {    
-                                line( frame, ptEnd, ptFar, Scalar(0,255,0), 1 );
+                                line( frame, ptEnd, palm_center, Scalar(0,255,0), 1 );
                                 no_of_fingers++;
                             }    
                         }

@@ -16,7 +16,7 @@ private:
     // various tracking parameters (in seconds)
     const double MHI_DURATION = 10;
     const double MAX_TIME_DELTA = 1.0;
-    const double MIN_TIME_DELTA = 0.05;
+    const double MIN_TIME_DELTA = 0.5;
     // number of cyclic frame buffer used for motion detection
     // (should, probably, depend on FPS)
 

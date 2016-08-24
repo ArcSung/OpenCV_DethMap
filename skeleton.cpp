@@ -277,6 +277,7 @@ Point findHand(Mat &img,  Mat Skin, Mat People, CascadeClassifier& cascade_hand,
 {
     int FWidth = body_skeleton.HeadWidth;
     Point rHand;
+    Point Elbow;
     Mat labelImage(Skin.size(), CV_32S);
     Mat mask(Skin.size(), CV_8UC1, Scalar(0));
     Mat handimg(Skin.size(), CV_8UC3, Scalar(0));
@@ -289,9 +290,15 @@ Point findHand(Mat &img,  Mat Skin, Mat People, CascadeClassifier& cascade_hand,
     vector<Point2f> ConnerPoint;
     //normalize(labelImage, labelImage, 0, 255, NORM_MINMAX, CV_8U);
     if(RightOrLeft == 1)
+    {    
         rHand = body_skeleton.rElbow;
+        Elbow = body_skeleton.rElbow;
+    }    
     else
+    {
         rHand = body_skeleton.lElbow;
+        Elbow = body_skeleton.lElbow;
+    }    
 
     //find the most close area
     for(int x = rHand.x - FWidth > 0 ? rHand.x - FWidth: 0; x < (rHand.x + FWidth < Skin.cols-1 ? rHand.x + FWidth : Skin.cols -1); x++)
@@ -316,9 +323,9 @@ Point findHand(Mat &img,  Mat Skin, Mat People, CascadeClassifier& cascade_hand,
     if(label != 0)
     {
         inRange(labelImage, Scalar(label), Scalar(label), mask);
-        Mat element_mask = Mat(Size(5, 5), CV_8UC1, Scalar(1));
-        dilate(mask, mask, element_mask);
-        People.copyTo(handimg, mask);
+        //Mat element_mask = Mat(Size(5, 5), CV_8UC1, Scalar(1));
+        //dilate(mask, mask, element_mask);
+        //People.copyTo(handimg, mask);
         //imshow("handimg", handimg);
         //
         /*double scale = 1.0;
@@ -335,7 +342,7 @@ Point findHand(Mat &img,  Mat Skin, Mat People, CascadeClassifier& cascade_hand,
             |CASCADE_SCALE_IMAGE
             ,Size(10, 10) );
 
-        for( vector<Rect>::const_iterator r = hand.begin(); r != hand.end(); r++)
+        for(vector<Rect>::const_iterator r = hand.begin(); r != hand.end(); r++)
         {
             rHand.x = cvRound((r->x + r->width*0.5)*scale);
             rHand.y = cvRound((r->y + r->height*0.5)*scale);
@@ -344,6 +351,29 @@ Point findHand(Mat &img,  Mat Skin, Mat People, CascadeClassifier& cascade_hand,
                     cvPoint(cvRound((r->x + r->width-1)*scale), cvRound((r->y + r->height-1)*scale)),
                     Scalar(0, 255, 255), 3, 8, 0);
         }*/
+        //find the most far point of the most close area
+        //erode(labelImage, labelImage, element_mask);
+        //imshow("hand mask", mask);
+        FWidth = FWidth * 2.5;
+        for(int x = Elbow.x - FWidth > 0 ? Elbow.x - FWidth: 0; x < (Elbow.x + FWidth < Skin.cols-1 ? Elbow.x + FWidth : Skin.cols -1); x++)
+            for(int y = Elbow.y - FWidth > 0 ? Elbow.y - FWidth: 0; y < (Elbow.y + FWidth < Skin.rows-1 ? Elbow.y + FWidth : Skin.rows -1); y++)
+            {
+                if(labelImage.at<int>(y,x) == label)
+                //if(mask.at<int>(x,y) == 255)
+                {    
+                    procD =CalcuDistance(Elbow, Point(x,y));
+                    if(procD > maxD)
+                    {    
+                        maxD = procD;
+                        rHand = Point(x,y);
+                    }        
+                }    
+            }    
+        Mat CircleMask = Mat::zeros(mask.size(), CV_8UC1);
+        circle(CircleMask, rHand, FWidth*0.5, Scalar(255), CV_FILLED, 1, 0);
+        mask &= CircleMask;
+        //imshow("hand mask", mask);
+
         GestureDetection(mask, img, rHand, FWidth);
     }    
 

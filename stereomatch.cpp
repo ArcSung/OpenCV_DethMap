@@ -435,7 +435,7 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
                 }  
             }    
 
-            _motdetect->update_mhi(img, hand_mot ,30);
+            //_motdetect->update_mhi(img, hand_mot ,50);
         }    
 
         rectangle( img, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)),
