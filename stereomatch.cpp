@@ -390,7 +390,7 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
             if(CalcuDistance(body_skeleton.rElbow, body_skeleton.rHand) > r->width*0.5)
             {
                 line(imgROI, body_skeleton.rElbow,   body_skeleton.rHand, color, 2, 1, 0);
-                //circle(imgROI, body_skeleton.rHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
+                circle(imgROI, body_skeleton.rHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
                 rectangle(hand_mot, cvPoint(body_skeleton.rHand.x - radius*0.5 + tl.x, body_skeleton.rHand.y - radius*0.5 + tl.y)
                         , cvPoint(body_skeleton.rHand.x + radius*0.5 + tl.x, body_skeleton.rHand.y + radius*0.5 + tl.y)
                         , Scalar(255), CV_FILLED, 8, 0);
@@ -404,7 +404,7 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
                 {    
                     body_skeleton.rHand = lastRHand;
                     line(imgROI, body_skeleton.rElbow,   body_skeleton.rHand, color, 2, 1, 0);
-                    //circle(imgROI, body_skeleton.rHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
+                    circle(imgROI, body_skeleton.rHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
                     rectangle(hand_mot, cvPoint(body_skeleton.rHand.x - radius*0.5 + tl.x, body_skeleton.rHand.y - radius*0.5 + tl.y)
                         , cvPoint(body_skeleton.rHand.x + radius*0.5 + tl.x, body_skeleton.rHand.y + radius*0.5 + tl.y)
                         , Scalar(255), CV_FILLED, 8, 0);
@@ -415,7 +415,7 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
             if(CalcuDistance(body_skeleton.lElbow, body_skeleton.lHand) > r->width*0.5)
             {
                 line(imgROI, body_skeleton.lElbow,   body_skeleton.lHand, color, 2, 1, 0);
-                //circle(imgROI, body_skeleton.lHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
+                circle(imgROI, body_skeleton.lHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
                 rectangle(hand_mot, cvPoint(body_skeleton.lHand.x - radius*0.5 + tl.x, body_skeleton.lHand.y - radius*0.5 + tl.y)
                         , cvPoint(body_skeleton.lHand.x + radius*0.5 + tl.x, body_skeleton.lHand.y + radius*0.5 + tl.y)
                         , Scalar(255), CV_FILLED, 8, 0);
@@ -428,7 +428,7 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
                 {    
                     body_skeleton.lHand = lastLHand;
                     line(imgROI, body_skeleton.rElbow,   body_skeleton.rHand, color, 2, 1, 0);
-                    //circle(imgROI, body_skeleton.rHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
+                    circle(imgROI, body_skeleton.rHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
                     rectangle(hand_mot, cvPoint(body_skeleton.rHand.x - radius*0.5 + tl.x, body_skeleton.rHand.y - radius*0.5 + tl.y)
                         , cvPoint(body_skeleton.rHand.x + radius*0.5 + tl.x, body_skeleton.rHand.y + radius*0.5 + tl.y)
                         , Scalar(255), CV_FILLED, 8, 0);

@@ -5,15 +5,14 @@
 #include<opencv2/opencv.hpp>
 #include <vector>
 #include <string>
-#include "main.hpp"
-#include "myImage.hpp"
 
 using namespace cv;
 using namespace std;
 
+#define PI 3.14159
+
 class HandGesture{
 	public:
-		MyImage m;
 		HandGesture();
 		vector<vector<Point> > contours;
 		vector<vector<int> >hullI;
@@ -32,28 +31,28 @@ class HandGesture{
 		bool isHand;
 		bool detectIfHand();
 		void initVectors();
-		void getFingerNumber(MyImage *m);
-		void eleminateDefects(MyImage *m);
-		void getFingerTips(MyImage *m);
-		void drawFingerTips(MyImage *m);
+		void getFingerNumber(Mat &src, Mat &bw);
+		void eleminateDefects(Mat &src, Mat &bw);
+		void getFingerTips(Mat &src, Mat &bw);
+		void drawFingerTips(Mat &src);
 	private:
 		string bool2string(bool tf);
 		int fontFace;
 		int prevNrFingerTips;
-		void checkForOneFinger(MyImage *m);
+		void checkForOneFinger(Mat &src, Mat &bw);
 		float getAngle(Point s,Point f,Point e);	
 		vector<int> fingerNumbers;
 		void analyzeContours();
 		string intToString(int number);
 		void computeFingerNumber();
-		void drawNewNumber(MyImage *m);
-		void addNumberToImg(MyImage *m);
+		void drawNewNumber(Mat &src, Mat &bw);
+		void addNumberToImg(Mat &src);
 		vector<int> numbers2Display;
 		void addFingerNumberToVector();
 		Scalar numberColor;
 		int nrNoFinger;
 		float distanceP2P(Point a,Point b);
-		void removeRedundantEndPoints(vector<Vec4i> newDefects,MyImage *m);
+		void removeRedundantEndPoints(vector<Vec4i> newDefects);
 		void removeRedundantFingerTips();
 };
 

@@ -66,17 +66,13 @@ bool HandGesture::detectIfHand(){
 	double h = bRect_height; 
 	double w = bRect_width;
 	isHand=true;
-	//if(fingerTips.size() > 5 ){
-    //    printf("fingerTips.size() > 5\n" );
-	//	isHand=false;
-	if(h==0 || w == 0){
-        printf("2\n" );
+	if(fingerTips.size() > 5 ){
+		isHand=false;
+    }else if(h==0 || w == 0){
 		isHand=false;
 	}else if(h/w > 4 || w/h >4){
-        printf("3\n" );
 		isHand=false;	
 	}else if(bRect.x<20){
-        printf("4\n" );
 		isHand=false;	
 	}	
 	return isHand;
@@ -131,7 +127,7 @@ void HandGesture::addFingerNumberToVector(){
 }
 
 // add the calculated number of fingers to image m->src
-void HandGesture::addNumberToImg(MyImage *m){
+void HandGesture::addNumberToImg(Mat &src){
 	int xPos=10;
 	int yPos=10;
 	int offset=30;
@@ -150,9 +146,9 @@ void HandGesture::addNumberToImg(MyImage *m){
 
 // calculate most frequent numbers of fingers 
 // over 20 frames
-void HandGesture::getFingerNumber(MyImage *m){
+void HandGesture::getFingerNumber(Mat &src, Mat &bw){
 	removeRedundantFingerTips();
-	if(bRect.height > m->src.rows/2 && nrNoFinger>12 && isHand){
+	if(bRect.height > src.rows/2 && nrNoFinger>12 && isHand){
 		numberColor=Scalar(0,200,0);
 		addFingerNumberToVector();
 		if(frameNumber>12){
@@ -180,8 +176,8 @@ float HandGesture::getAngle(Point s, Point f, Point e){
 	return angle;
 }
 
-void HandGesture::eleminateDefects(MyImage *m){
-	int tolerance =  bRect_height/5;
+void HandGesture::eleminateDefects(Mat &src, Mat &bw){
+	int tolerance =  bRect_height/2;
 	float angleTol=95;
 	vector<Vec4i> newDefects;
 	int startidx, endidx, faridx;
@@ -202,11 +198,11 @@ void HandGesture::eleminateDefects(MyImage *m){
 	}
 	nrOfDefects=newDefects.size();
 	defects[cIdx].swap(newDefects);
-	removeRedundantEndPoints(defects[cIdx], m);
+	removeRedundantEndPoints(defects[cIdx]);
 }
 
 // remove endpoint of convexity defects if they are at the same fingertip
-void HandGesture::removeRedundantEndPoints(vector<Vec4i> newDefects,MyImage *m){
+void HandGesture::removeRedundantEndPoints(vector<Vec4i> newDefects){
 	Vec4i temp;
 	float avgX, avgY;
 	float tolerance=bRect_width/6;
@@ -231,10 +227,10 @@ void HandGesture::removeRedundantEndPoints(vector<Vec4i> newDefects,MyImage *m){
 // convexity defects does not check for one finger
 // so another method has to check when there are no
 // convexity defects
-void HandGesture::checkForOneFinger(MyImage *m){
+void HandGesture::checkForOneFinger(Mat &src, Mat &bw){
 	int yTol=bRect.height/6;
 	Point highestP;
-	highestP.y=m->src.rows;
+	highestP.y=src.rows;
 	vector<Point>::iterator d=contours[cIdx].begin();
 	while( d!=contours[cIdx].end() ) {
    	    Point v=(*d);
@@ -257,17 +253,17 @@ void HandGesture::checkForOneFinger(MyImage *m){
 	}
 }
 
-void HandGesture::drawFingerTips(MyImage *m){
+void HandGesture::drawFingerTips(Mat &src){
 	Point p;
 	int k=0;
 	for(int i=0;i<fingerTips.size();i++){
 		p=fingerTips[i];
-		putText(m->src,intToString(i),p-Point(0,30),fontFace, 1.2f,Scalar(200,200,200),2);
-   		circle( m->src,p,   5, Scalar(100,255,100), 4 );
+		putText(src,intToString(i),p-Point(0,30),fontFace, 1.2f,Scalar(200,200,200),2);
+   		circle( src,p,   5, Scalar(100,255,100), 4 );
    	 }
 }
 
-void HandGesture::getFingerTips(MyImage *m){
+void HandGesture::getFingerTips(Mat &src, Mat &bw){
 	fingerTips.clear();
 	int i=0;
 	vector<Vec4i>::iterator d=defects[cIdx].begin();
@@ -276,15 +272,15 @@ void HandGesture::getFingerTips(MyImage *m){
 	    int startidx=v[0]; Point ptStart(contours[cIdx][startidx] );
    		int endidx=v[1]; Point ptEnd(contours[cIdx][endidx] );
   	    int faridx=v[2]; Point ptFar(contours[cIdx][faridx] );
-		if(i==0){
+		/*if(i==0){
 			fingerTips.push_back(ptStart);
 			i++;
-		}
+		}*/
 		fingerTips.push_back(ptEnd);
 		d++;
 		i++;
    	}
-	if(fingerTips.size()==0){
-		checkForOneFinger(m);
-	}
+	/*if(fingerTips.size()==0){
+		checkForOneFinger(src, bw);
+	}*/
 }

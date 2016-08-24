@@ -3,6 +3,18 @@
 using namespace cv;
 using namespace std;
 
+int findBiggestContour(vector<vector<Point> > contours){
+    int indexOfBiggestContour = -1;
+    int sizeOfBiggestContour = 0;
+    for (int i = 0; i < contours.size(); i++){
+        if(contours[i].size() > sizeOfBiggestContour){
+            sizeOfBiggestContour = contours[i].size();
+            indexOfBiggestContour = i;
+        }
+    }
+    return indexOfBiggestContour;
+}
+
 bool FindHandCorner(Mat bin_img, std::vector<Point2f> &ConnerPoint)
 {
     std::vector<std::vector<Point> > contours;
@@ -369,14 +381,62 @@ Point findHand(Mat &img,  Mat Skin, Mat People, CascadeClassifier& cascade_hand,
                 }    
             }    
         Mat CircleMask = Mat::zeros(mask.size(), CV_8UC1);
-        circle(CircleMask, rHand, FWidth*0.5, Scalar(255), CV_FILLED, 1, 0);
+        circle(CircleMask, rHand, FWidth*0.4, Scalar(255), CV_FILLED, 1, 0);
         mask &= CircleMask;
-        //imshow("hand mask", mask);
+        imshow("hand mask", mask);
         
         if(RightOrLeft == 1)
-            body_skeleton.RHandGesture.GestureDetection(mask, img, rHand, FWidth);
+        {
+            findContours(mask, body_skeleton.RHandGesture.contours,CV_RETR_EXTERNAL,CV_CHAIN_APPROX_NONE);
+            body_skeleton.RHandGesture.initVectors(); 
+            body_skeleton.RHandGesture.cIdx=findBiggestContour(body_skeleton.RHandGesture.contours);
+            if(body_skeleton.RHandGesture.cIdx!=-1){
+                //approxPolyDP( Mat(hg->contours[hg->cIdx]), hg->contours[hg->cIdx], 11, true );
+                body_skeleton.RHandGesture.bRect=boundingRect(Mat(body_skeleton.RHandGesture.contours[body_skeleton.RHandGesture.cIdx]));		
+                convexHull(Mat(body_skeleton.RHandGesture.contours[body_skeleton.RHandGesture.cIdx]),body_skeleton.RHandGesture.hullP[body_skeleton.RHandGesture.cIdx],false,true);
+                convexHull(Mat(body_skeleton.RHandGesture.contours[body_skeleton.RHandGesture.cIdx]),body_skeleton.RHandGesture.hullI[body_skeleton.RHandGesture.cIdx],false,false);
+                approxPolyDP( Mat(body_skeleton.RHandGesture.hullP[body_skeleton.RHandGesture.cIdx]),body_skeleton.RHandGesture.hullP[body_skeleton.RHandGesture.cIdx], 18, true );
+                if(body_skeleton.RHandGesture.contours[body_skeleton.RHandGesture.cIdx].size()>3 ){
+                    convexityDefects(body_skeleton.RHandGesture.contours[body_skeleton.RHandGesture.cIdx],body_skeleton.RHandGesture.hullI[body_skeleton.RHandGesture.cIdx],body_skeleton.RHandGesture.defects[body_skeleton.RHandGesture.cIdx]);
+                    body_skeleton.RHandGesture.eleminateDefects(img, mask);
+                }
+                bool isHand=body_skeleton.RHandGesture.detectIfHand();
+                //hg->printGestureInfo(m->src);
+                if(isHand){	
+                    body_skeleton.RHandGesture.getFingerTips(img, mask);
+                    body_skeleton.RHandGesture.drawFingerTips(img);
+                    //myDrawContours(m,hg);
+		        }
+                Moments mo = moments(body_skeleton.RHandGesture.contours[body_skeleton.RHandGesture.cIdx]);
+                rHand = Point(mo.m10/mo.m00, mo.m01/mo.m00);
+	        }
+        }    
         else
-            body_skeleton.LHandGesture.GestureDetection(mask, img, rHand, FWidth);
+        {
+            findContours(mask, body_skeleton.LHandGesture.contours,CV_RETR_EXTERNAL,CV_CHAIN_APPROX_NONE);
+            body_skeleton.LHandGesture.initVectors(); 
+            body_skeleton.LHandGesture.cIdx=findBiggestContour(body_skeleton.LHandGesture.contours);
+            if(body_skeleton.LHandGesture.cIdx!=-1){
+                //approxPolyDP( Mat(hg->contours[hg->cIdx]), hg->contours[hg->cIdx], 11, true );
+                body_skeleton.LHandGesture.bRect=boundingRect(Mat(body_skeleton.LHandGesture.contours[body_skeleton.LHandGesture.cIdx]));		
+                convexHull(Mat(body_skeleton.LHandGesture.contours[body_skeleton.LHandGesture.cIdx]),body_skeleton.LHandGesture.hullP[body_skeleton.LHandGesture.cIdx],false,true);
+                convexHull(Mat(body_skeleton.LHandGesture.contours[body_skeleton.LHandGesture.cIdx]),body_skeleton.LHandGesture.hullI[body_skeleton.LHandGesture.cIdx],false,false);
+                approxPolyDP( Mat(body_skeleton.LHandGesture.hullP[body_skeleton.LHandGesture.cIdx]),body_skeleton.LHandGesture.hullP[body_skeleton.LHandGesture.cIdx], 18, true );
+                if(body_skeleton.LHandGesture.contours[body_skeleton.LHandGesture.cIdx].size()>3 ){
+                    convexityDefects(body_skeleton.LHandGesture.contours[body_skeleton.LHandGesture.cIdx],body_skeleton.LHandGesture.hullI[body_skeleton.LHandGesture.cIdx],body_skeleton.LHandGesture.defects[body_skeleton.LHandGesture.cIdx]);
+                    body_skeleton.LHandGesture.eleminateDefects(img, mask);
+                }
+                bool isHand=body_skeleton.LHandGesture.detectIfHand();
+                //hg->printGestureInfo(m->src);
+                if(isHand){	
+                    body_skeleton.LHandGesture.getFingerTips(img, mask);
+                    body_skeleton.LHandGesture.drawFingerTips(img);
+                    //myDrawContours(m,hg);
+		        }
+                Moments mo = moments(body_skeleton.LHandGesture.contours[body_skeleton.LHandGesture.cIdx]);
+                rHand = Point(mo.m10/mo.m00, mo.m01/mo.m00);
+	        }
+        }    
 
     }    
 
