@@ -6,7 +6,7 @@ using namespace std;
 using namespace cv;
 
 //This function returns the square of the euclidean distance between 2 points.
-double dist(Point x,Point y)
+double Gesture::dist(Point x,Point y)
 {
 	return (x.x-y.x)*(x.x-y.x)+(x.y-y.y)*(x.y-y.y);
 }
@@ -14,7 +14,7 @@ double dist(Point x,Point y)
 
 //This function returns the radius and the center of the circle given 3 points
 //If a circle cannot be formed , it returns a zero radius circle centered at (0,0)
-pair<Point,double> circleFromPoints(Point p1, Point p2, Point p3)
+pair<Point,double> Gesture::circleFromPoints(Point p1, Point p2, Point p3)
 {
 	double offset = pow(p2.x,2) +pow(p2.y,2);
 	double bc =   ( pow(p1.x,2) + pow(p1.y,2) - offset )/2.0;
@@ -31,7 +31,7 @@ pair<Point,double> circleFromPoints(Point p1, Point p2, Point p3)
 	return make_pair(Point(centerx,centery),radius);
 }
 
-void GestureDetection(Mat &fore, Mat &frame, Point &hand, int FaceHeight)
+void Gesture::GestureDetection(Mat &fore, Mat &frame, Point &hand, int FaceHeight)
 {
 
 	vector<vector<Point> > contours;
@@ -40,7 +40,7 @@ void GestureDetection(Mat &fore, Mat &frame, Point &hand, int FaceHeight)
   	findContours(fore,contours,CV_RETR_EXTERNAL,CV_CHAIN_APPROX_NONE);
 	for(int i=0;i<contours.size();i++)
 	//Ignore all small insignificant areas
-	if(contourArea(contours[i])>=5000)		    
+	if(contourArea(contours[i])>=FaceHeight*FaceHeight/30)		    
 	{
         //Draw contour
 		vector<vector<Point> > tcontours;
@@ -111,7 +111,7 @@ void GestureDetection(Mat &fore, Mat &frame, Point &hand, int FaceHeight)
                 }
 
                 //Find avg palm centers for the last few frames to stabilize its centers, also find the avg radius
-                /*palm_centers.push_back(soln_circle);
+                palm_centers.push_back(soln_circle);
                 if(palm_centers.size()>10)
                     palm_centers.erase(palm_centers.begin());
                             
@@ -124,12 +124,12 @@ void GestureDetection(Mat &fore, Mat &frame, Point &hand, int FaceHeight)
                 }
                 palm_center.x/=palm_centers.size();
                 palm_center.y/=palm_centers.size();
-                radius/=palm_centers.size();*/
+                radius/=palm_centers.size();
 
                 //Draw the palm center and the palm circle
                 //The size of the palm gives the depth of the hand
-                Point palm_center = soln_circle.first;
-                double radius = soln_circle.second;
+                //Point palm_center = soln_circle.first;
+                //double radius = soln_circle.second;
 
                 circle(frame,palm_center,5,Scalar(0, 0, 255),3);
                 circle(frame,palm_center,radius,Scalar(0, 0, 255),2);

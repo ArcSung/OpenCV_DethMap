@@ -1,5 +1,4 @@
 #include "skeleton.hpp"
-#include "handguesture.hpp"
 
 using namespace cv;
 using namespace std;
@@ -373,8 +372,12 @@ Point findHand(Mat &img,  Mat Skin, Mat People, CascadeClassifier& cascade_hand,
         circle(CircleMask, rHand, FWidth*0.5, Scalar(255), CV_FILLED, 1, 0);
         mask &= CircleMask;
         //imshow("hand mask", mask);
+        
+        if(RightOrLeft == 1)
+            body_skeleton.RHandGesture.GestureDetection(mask, img, rHand, FWidth);
+        else
+            body_skeleton.LHandGesture.GestureDetection(mask, img, rHand, FWidth);
 
-        GestureDetection(mask, img, rHand, FWidth);
     }    
 
   return rHand;

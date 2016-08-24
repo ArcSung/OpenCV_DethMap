@@ -9,6 +9,7 @@
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/objdetect.hpp"
+#include "handguesture.hpp"
 
 using namespace cv;
 using namespace std;
@@ -26,6 +27,8 @@ class BodySkeleton
     Point lHand;
     int HeadWidth;
     int HeadHeight;
+    Gesture RHandGesture;
+    Gesture LHandGesture;
 
 };
 
