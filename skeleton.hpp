@@ -27,25 +27,36 @@ class BodySkeleton
     Point lHand;
     int HeadWidth;
     int HeadHeight;
+    double FaceDistance;
     HandGesture RHandGesture;
     HandGesture LHandGesture;
+    Rect FaceRect;
 
+    //function
+    void init(Mat src,  Mat disp8, Mat &disp8Mask, Rect r, Rect RoiRect, double scale);
+    void GetFaceDistance(Mat disp8, Mat &dispMask);
+    double CalcuDistance(Point P1, Point P2);
+    void FindFaceConnect(Mat &bw);
+    void FindUpperBody(CascadeClassifier& cascade, double scale);
+    void FindArm(int RightOrLeft);
+    void FindHand(Mat &img, CascadeClassifier& cascade_hand, int RightOrLeft);
+
+  private:  
+    Mat PeopleSeg;
+    Mat SkinSeg;
+    Mat disp;
+    Mat dispMask;
+    void fillContours(Mat &bw);
+    Mat findDistTran(Mat bw);
 };
-
-double CalcuDistance(Point P1, Point P2);
-
-void findConnectComponent(Mat &bw, int x, int y);
 
 void findSkeleton(Mat &bw);
 
-Mat findDistTran(Mat bw);
 
-void findUpperBody( Mat& img, CascadeClassifier& cascade, double scale, Rect FaceRect, BodySkeleton &body_skeleton);
 
 Mat CalcuEDT(Mat DT, Point ref);
 
 Mat findSkinColor(Mat src);
 
-Point findArm(Mat EDT, BodySkeleton &body_skeleton, int findLeftelbow);
 
 Point findHand(Mat &img,  Mat Skin, Mat People, CascadeClassifier& cascade_hand, BodySkeleton &body_skeleton, int RightOrLeft);

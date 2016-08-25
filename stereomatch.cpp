@@ -231,9 +231,11 @@ int main(int argc, char* argv[])
                 update_bg_model = false;
         }
 
-        //inRange(disp8, Scalar(Thres, Thres, Thres), Scalar(256, 256, 256), disp8);
-        flip(disp8, disp8, 1);
+        Mat dispMask, dispTemp;
+        inRange(disp8, Scalar(Thres, Thres, Thres), Scalar(256, 256, 256), dispMask);
+        disp8.copyTo(dispTemp, dispMask);
 
+        flip(dispTemp, disp8, 1);
         flip(img2, img2, 1);
         flip(img1, img1, 1);
 
@@ -268,6 +270,11 @@ int main(int argc, char* argv[])
             default:
             ;
         }
+        disp.release();
+        disp8.release();
+        disp32F.release();
+        dispMask.release();
+        dispTemp.release();
     }    
     
 
@@ -317,6 +324,7 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
         bl = Point (tl.x, cvRound((r->y + r->height*4.0)*scale) < img.rows ? cvRound((r->y + r->height*4.0)*scale) : img.rows); 
         br = Point (tr.x, bl.y); 
         Rect RoiRect = Rect(tl.x, tl.y, tr.x - tl.x, bl.y - tl.y);
+        Rect FaceRect = Rect(r->x, r->y, r->width, r->height);
         Mat imgROI = img(RoiRect);
         Mat handROI = hand_mot(RoiRect);
         Mat dispROI = disp(RoiRect);
@@ -332,23 +340,8 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
         center.x = cvRound((r->x + r->width*0.5)*scale - tl.x);
         center.y = cvRound((r->y + r->height*0.5)*scale - tl.y);
 
-        //Mask
-        double Dist = GetFaceDistance(center.x, center.y, dispROI, dispMask);
-        //threshold(dispMask, dispMask, 10, 255,  THRESH_BINARY);
-        fillContours(dispMask);
-        findConnectComponent(dispMask, center.x, center.y);
-        //imshow("dispMask", dispMask);
-        imgROI.copyTo(people, dispMask);
-        
-        //start search skeleton
-        Skin = findSkinColor(people);
-        body_skeleton.head = Point(center.x, center.y);
-        body_skeleton.neck = Point(center.x, center.y + r->height*0.6);
-        body_skeleton.HeadWidth = r->width;
-        body_skeleton.HeadHeight = r->height;
-        body_skeleton.lShoulder = Point(0, 0);
-        body_skeleton.rShoulder = Point(0, 0);
-        findUpperBody( imgROI, cascade2, scale, Rect(r->x, r->y, r->width, r->height), body_skeleton);
+        body_skeleton.init(imgROI, dispROI, dispMask, FaceRect, RoiRect, scale);
+        body_skeleton.FindUpperBody(cascade2, scale);
 
         if(ShoulderCount < 10 && body_skeleton.lShoulder.x == 0 && body_skeleton.lShoulder.y == 0 )
         {    
@@ -361,18 +354,17 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
             lastRShoulder = body_skeleton.rShoulder;
             lastLShoulder = body_skeleton.lShoulder;
             ShoulderCount = 0;
-            DT = findDistTran(dispMask);
             //findSkeleton(dispMask);
             //find right arm
             //EDT = CalcuEDT(DT, body_skeleton.rShoulder);
-            body_skeleton.rElbow = findArm(DT, body_skeleton, 1);
-            body_skeleton.rHand = findHand(imgROI, Skin, people, cascade_hand, body_skeleton, 1);
+            body_skeleton.FindArm(1);
+            body_skeleton.FindHand(imgROI, cascade_hand, 1);
 
             //waitKey(0);
             //find left arm
             //EDT = CalcuEDT(EDT, body_skeleton.lShoulder);
-            body_skeleton.lElbow = findArm(DT, body_skeleton, 0);
-            body_skeleton.lHand = findHand(imgROI, Skin, people, cascade_hand, body_skeleton, 0);
+            body_skeleton.FindArm(0);
+            body_skeleton.FindHand(imgROI, cascade_hand, 0);
 
             line(imgROI, body_skeleton.head,   body_skeleton.neck, color, 2, 1, 0);
             line(imgROI, body_skeleton.neck,   body_skeleton.rShoulder, color, 2, 1, 0);
@@ -387,7 +379,7 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
             circle(imgROI, body_skeleton.lElbow, radius*0.2, Scalar(0, 255, 0), 2, 1, 0);
             
             //right hand 
-            if(CalcuDistance(body_skeleton.rElbow, body_skeleton.rHand) > r->width*0.5)
+            if(body_skeleton.CalcuDistance(body_skeleton.rElbow, body_skeleton.rHand) > r->width*0.5)
             {
                 line(imgROI, body_skeleton.rElbow,   body_skeleton.rHand, color, 2, 1, 0);
                 circle(imgROI, body_skeleton.rHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
@@ -412,7 +404,7 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
             }    
 
             //left hand 
-            if(CalcuDistance(body_skeleton.lElbow, body_skeleton.lHand) > r->width*0.5)
+            if(body_skeleton.CalcuDistance(body_skeleton.lElbow, body_skeleton.lHand) > r->width*0.5)
             {
                 line(imgROI, body_skeleton.lElbow,   body_skeleton.lHand, color, 2, 1, 0);
                 circle(imgROI, body_skeleton.lHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
@@ -441,12 +433,12 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
         rectangle( img, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)),
                     cvPoint(cvRound((r->x + r->width-1)*scale), cvRound((r->y + r->height-1)*scale)),
                     color, 3, 8, 0);
-        if(Dist < 100)
-            sprintf(str, "Dist: %2.2f cm",  Dist);
+        if(body_skeleton.FaceDistance < 100)
+            sprintf(str, "D: %2.2f cm",  body_skeleton.FaceDistance);
         else
         {
-            Dist =  Dist/100;
-            sprintf(str, "Dist: %2.2f m",  Dist);
+            double Dist =  body_skeleton.FaceDistance/100;
+            sprintf(str, "D: %2.2f m",  Dist);
         }  
         putText(img, str, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)), CV_FONT_HERSHEY_DUPLEX, 1, CV_RGB(0, 255, 0));
     }
@@ -455,34 +447,6 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
     LHandCount++;
 }
 
-double GetFaceDistance(int x, int y, Mat disp8, Mat &dispMask)
-{
-   double dispD = 0 ;
-   double focal = disp8.cols*0.23;
-   double between = 6.50; //the distance between 2 camera0
-   int averge;
-
-   for(int i = x - 1; i <= x + 1; i++)
-       for(int j = y - 1; j <= y + 1; j++)
-       {
-           if(disp8.at<unsigned char>(y, x) != 0)
-           {
-               dispD += disp8.at<unsigned char>(y, x);
-               averge++;
-           }   
-       }   
-
-   if(dispD !=0)
-   {
-        dispD /= averge;
-        inRange(disp8, Scalar(dispD - 20), Scalar(255), dispMask);
-        imshow("dispMask",dispMask);
-        return (between*focal*16.0/dispD);
-        //return (dispD);
-   } 
-   else
-    return 0;   
-}
 
 bool read_file(const char* filename)
 {
@@ -547,19 +511,5 @@ void fillContours(Mat &bw)
     }
 }
 
-Mat findDistTran(Mat bw)
-{
-    Mat dist;
-    distanceTransform(bw, dist, CV_DIST_L2, 3);
-
-    // Normalize the distance image for range = {0.0, 1.0}
-    // so we can visualize and threshold it
-    normalize(dist, dist, 0, 1, NORM_MINMAX);
-    dist.convertTo(dist, CV_8UC1, 255);
-    //thinning(bw, dist);
-    //namedWindow("Distance Transform Image", 0);
-    //imshow("Distance Transform Image", dist);
-    return dist;
-}
 
 

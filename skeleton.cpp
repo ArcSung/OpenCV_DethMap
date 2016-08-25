@@ -3,6 +3,78 @@
 using namespace cv;
 using namespace std;
 
+void BodySkeleton::init(Mat src, Mat disp8, Mat &disp8Mask, Rect r, Rect RoiRect, double scale)
+{
+    head = Point(cvRound((r.x + r.width*0.5)*scale - RoiRect.x), cvRound((r.y + r.height*0.5)*scale - RoiRect.y));
+    neck = Point(head.x, head.y + r.height*0.6);
+    HeadWidth = r.width;
+    HeadHeight = r.height;
+    lShoulder = Point(0, 0);
+    rShoulder = Point(0, 0);
+    FaceRect = r;
+
+    disp8.copyTo(disp);
+    disp8Mask.copyTo(dispMask);
+
+    GetFaceDistance(disp, dispMask);
+    FindFaceConnect(dispMask);
+    
+    src.copyTo(PeopleSeg, dispMask);
+    SkinSeg = findSkinColor(PeopleSeg);
+}    
+
+void BodySkeleton::GetFaceDistance(Mat disp8, Mat &dispMask)
+{
+   double dispD = 0;
+   double focal = 480*0.23;
+   double between = 6.50; //the distance between 2 camera0
+   int averge;
+
+   for(int i = head.x - 1; i <= head.x + 1; i++)
+       for(int j = head.y - 1; j <= head.y + 1; j++)
+       {
+           if(disp8.at<unsigned char>(j, i) != 0)
+           {
+               dispD += disp8.at<unsigned char>(j, i);
+               averge++;
+           }   
+       }   
+
+   if(dispD !=0)
+   {
+        dispD /= averge;
+        inRange(disp8, Scalar(dispD - 15), Scalar(255), dispMask);
+        fillContours(dispMask);
+        FaceDistance = between*focal*16.0/dispD;
+   } 
+   else
+        FaceDistance = 0;   
+}
+
+void BodySkeleton::fillContours(Mat &bw)
+{
+    // Another option is to use dilate/erode/dilate:
+	int morph_operator = 1; // 0: opening, 1: closing, 2: gradient, 3: top hat, 4: black hat
+	int morph_elem = 2; // 0: rect, 1: cross, 2: ellipse
+	int morph_size = 10; // 2*n + 1
+    int operation = morph_operator + 2;
+
+    // Apply the specified morphology operation
+    Mat element = getStructuringElement( morph_elem, Size( 2*morph_size + 1, 2*morph_size+1 ), Point( morph_size, morph_size ) );
+    morphologyEx( bw, bw, operation, element );
+    
+    vector<vector<Point> > contours; // Vector for storing contour
+    vector<Vec4i> hierarchy;
+     
+    findContours(bw, contours, hierarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_SIMPLE); // Find the contours in the image
+ 
+    Scalar color(255);
+    for(int i = 0; i < contours.size(); i++) // Iterate through each contour
+    {
+        drawContours(bw, contours, i, color, CV_FILLED, 8, hierarchy);
+    }
+}
+
 int findBiggestContour(vector<vector<Point> > contours){
     int indexOfBiggestContour = -1;
     int sizeOfBiggestContour = 0;
@@ -73,23 +145,38 @@ bool FindHandCorner(Mat bin_img, std::vector<Point2f> &ConnerPoint)
     return true;
 }
 
-double CalcuDistance(Point P1, Point P2)
+double BodySkeleton::CalcuDistance(Point P1, Point P2)
 {
     return norm(P1 - P2);
 }    
 
+Mat FindDistTran(Mat bw)
+{
+    Mat dist;
+    distanceTransform(bw, dist, CV_DIST_L2, 3);
+
+    // Normalize the distance image for range = {0.0, 1.0}
+    // so we can visualize and threshold it
+    normalize(dist, dist, 0, 1, NORM_MINMAX);
+    dist.convertTo(dist, CV_8UC1, 255);
+    //thinning(bw, dist);
+    //namedWindow("Distance Transform Image", 0);
+    //imshow("Distance Transform Image", dist);
+    return dist;
+}
+
 Mat findSkinColor(Mat src)
 {
-    Mat bgr2ycrcbImg, ycrcb2skinImg;
-    cvtColor( src, bgr2ycrcbImg, cv::COLOR_BGR2HSV );
-    inRange( bgr2ycrcbImg, cv::Scalar(0, 58, 40), cv::Scalar(35, 174, 255), ycrcb2skinImg );
-    erode(ycrcb2skinImg, ycrcb2skinImg, Mat());
-    dilate(ycrcb2skinImg, ycrcb2skinImg, Mat());
+    Mat bgr2hsv, hsv2skin;
+    cvtColor( src, bgr2hsv, cv::COLOR_BGR2HSV );
+    inRange( bgr2hsv, cv::Scalar(0, 58, 0), cv::Scalar(35, 174, 255), hsv2skin);
+    erode(hsv2skin, hsv2skin, Mat());
+    dilate(hsv2skin, hsv2skin, Mat());
     //fillContours(ycrcb2skinImg);
     std::vector<std::vector<Point> > contours;
     std::vector<Vec4i> hierarchy;
 
-    findContours(ycrcb2skinImg,
+    findContours(hsv2skin,
     contours,
     hierarchy,
     RETR_TREE,
@@ -106,15 +193,14 @@ Mat findSkinColor(Mat src)
         }
     } 
     //imshow("skin color", drawing);
-
     return drawing;
 }    
 
-void findConnectComponent(Mat &bw, int x, int y)
+void BodySkeleton::FindFaceConnect(Mat &bw)
 {
     Mat labelImage(bw.size(), CV_32S);
     int nLabels = connectedComponents(bw, labelImage, 8);
-    int label = labelImage.at<int>(x, y);
+    int label = labelImage.at<int>(head.x, head.y);
 
     if(label > 0)
     {    
@@ -147,14 +233,13 @@ void findSkeleton(Mat &bw)
     //imshow("skeleton", skel);
 }
 
-void findUpperBody( Mat& img, CascadeClassifier& cascade,
-                    double scale, Rect FaceRect,  BodySkeleton &body_skeleton)
+void BodySkeleton::FindUpperBody(CascadeClassifier& cascade, double scale)
 {
     int i = 0;
     char str[30];
     vector<Rect> upbody;
-    Mat gray, smallImg( cvRound (img.rows/scale), cvRound(img.cols/scale), CV_8UC1 );
-    cvtColor( img, gray, COLOR_BGR2GRAY );
+    Mat gray, smallImg( cvRound (PeopleSeg.rows/scale), cvRound(PeopleSeg.cols/scale), CV_8UC1 );
+    cvtColor( PeopleSeg, gray, COLOR_BGR2GRAY );
     resize( gray, smallImg, smallImg.size(), 0, 0, INTER_LINEAR );
     equalizeHist( smallImg, smallImg );
 
@@ -175,9 +260,8 @@ void findUpperBody( Mat& img, CascadeClassifier& cascade,
 
             if(center.x > FaceRect.x && center.x < FaceRect.x + FaceRect.width && center.y < FaceRect.y + FaceRect.width*2 )
             {    
-                //printf("find upbody\n");
-                body_skeleton.lShoulder = Point(cvRound(r->x*scale + (r->width-1)*0.1), r->y*scale + (r->height-1)*0.9);
-                body_skeleton.rShoulder = Point(cvRound(r->x*scale + (r->width-1)*0.9), r->y*scale + (r->height-1)*0.9);
+                lShoulder = Point(cvRound(r->x*scale + (r->width-1)*0.1), r->y*scale + (r->height-1)*0.9);
+                rShoulder = Point(cvRound(r->x*scale + (r->width-1)*0.9), r->y*scale + (r->height-1)*0.9);
                 break;
                 /*rectangle( img, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)),
                             cvPoint(cvRound((r->x + r->width-1)*scale), cvRound((r->y + r->height-1)*scale)),
@@ -190,16 +274,17 @@ void findUpperBody( Mat& img, CascadeClassifier& cascade,
 }
 
 
-Point findArm(Mat EDT, BodySkeleton &body_skeleton, int RightOrLeft)
+void BodySkeleton::FindArm(int RightOrLeft)
 {
-    int fheight = body_skeleton.HeadHeight*0.9;
+    Mat EDT = FindDistTran(dispMask);
+    int fheight = HeadHeight*0.9;
     float Slope = 0;
     //float refValue = EDT.at<unsigned char>(lShoulder.x, lShoulder.y);
     Point elbow;
     if(RightOrLeft == 1)
-        elbow = body_skeleton.rShoulder;
+        elbow = Point(rShoulder);
     else
-        elbow = body_skeleton.lShoulder;
+        elbow = Point(lShoulder);
 
     Mat proc;
     GaussianBlur(EDT, proc, Size(5, 5), 0);
@@ -223,7 +308,7 @@ Point findArm(Mat EDT, BodySkeleton &body_skeleton, int RightOrLeft)
                 for(int y = elbow.y + fheight/4 > EDT.rows - 1 ? EDT.rows - 1 : elbow.y + fheight/4; y > (elbow.y - fheight/4 < 0 ? 0 : elbow.y - fheight/4); y--)
                 {
                   if(proc.at<unsigned char>(y, x) != 0
-                    && x > body_skeleton.rShoulder.x)
+                    && x > rShoulder.x)
                   {
                        search = Point(x, y);
                        find = true;
@@ -250,7 +335,7 @@ Point findArm(Mat EDT, BodySkeleton &body_skeleton, int RightOrLeft)
                 for(int y = elbow.y + fheight/4 > EDT.rows - 1 ? EDT.rows - 1 : elbow.y + fheight/4; y > (elbow.y - fheight/4 < 0 ? 0 : elbow.y - fheight/4); y--)
                 {
                   if(proc.at<unsigned char>(y, x) != 0
-                    && x < body_skeleton.lShoulder.x)
+                    && x < lShoulder.x)
                   {
                        search = Point(x, y);
                        find = true;
@@ -280,52 +365,54 @@ Point findArm(Mat EDT, BodySkeleton &body_skeleton, int RightOrLeft)
         }    
     }    
 
-    printf("lelbow %d, %d\n", elbow.x, elbow.y);
-    return elbow;
+    if(RightOrLeft)
+        rElbow = elbow;
+    else
+        lElbow = elbow;
 }    
 
-Point findHand(Mat &img,  Mat Skin, Mat People, CascadeClassifier& cascade_hand, BodySkeleton &body_skeleton, int RightOrLeft)
+void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int RightOrLeft)
 {
-    Point rHand;
+    Point Hand;
     Point Elbow;
-    Mat labelImage(Skin.size(), CV_32S);
-    Mat mask(Skin.size(), CV_8UC1, Scalar(0));
-    Mat handimg(Skin.size(), CV_8UC3, Scalar(0));
+    Mat labelImage(SkinSeg.size(), CV_32S);
+    Mat mask(SkinSeg.size(), CV_8UC1, Scalar(0));
+    Mat handimg(SkinSeg.size(), CV_8UC3, Scalar(0));
     HandGesture *_hg;
-    int FWidth = body_skeleton.HeadWidth;
-    int nLabels = connectedComponents(Skin, labelImage, 8);
+    int FWidth = HeadWidth;
+    int nLabels = connectedComponents(SkinSeg, labelImage, 8);
     int label = 0;
     int minD = FWidth;
     int maxD = 0;
     int procD = 0;
-    int facelabel = labelImage.at<int>(body_skeleton.head.y, body_skeleton.head.x);
+    int facelabel = labelImage.at<int>(head.y, head.x);
     vector<Point2f> ConnerPoint;
     //normalize(labelImage, labelImage, 0, 255, NORM_MINMAX, CV_8U);
     if(RightOrLeft == 1)
     {    
-        rHand = body_skeleton.rElbow;
-        Elbow = body_skeleton.rElbow;
-        _hg   = &body_skeleton.RHandGesture;
+        Hand  = Point(rElbow);
+        Elbow = Point(rElbow);
+        _hg   = &RHandGesture;
     }    
     else
     {
-        rHand = body_skeleton.lElbow;
-        Elbow = body_skeleton.lElbow;
-        _hg   = &body_skeleton.LHandGesture;
+        Hand  = Point(lElbow);
+        Elbow = Point(lElbow);
+        _hg   = &LHandGesture;
     }    
 
     //find the most close area
-    for(int x = rHand.x - FWidth > 0 ? rHand.x - FWidth: 0; x < (rHand.x + FWidth < Skin.cols-1 ? rHand.x + FWidth : Skin.cols -1); x++)
-        for(int y = rHand.y - FWidth > 0 ? rHand.y - FWidth: 0; y < (rHand.y + FWidth < Skin.rows-1 ? rHand.y + FWidth : Skin.rows -1); y++)
+    for(int x = Elbow.x - FWidth > 0 ? Elbow.x - FWidth: 0; x < (Elbow.x + FWidth < SkinSeg.cols-1 ? Elbow.x + FWidth : SkinSeg.cols -1); x++)
+        for(int y = Elbow.y - FWidth > 0 ? Elbow.y - FWidth: 0; y < (Elbow.y + FWidth < SkinSeg.rows-1 ? Elbow.y + FWidth : SkinSeg.rows -1); y++)
         {
             if(labelImage.at<int>(y,x) != 0 && labelImage.at<int>(y,x) != facelabel)
             {    
-                if(RightOrLeft == 0 && x > body_skeleton.rShoulder.x)
+                if(RightOrLeft == 0 && x > rShoulder.x)
                     continue;
-                else if(RightOrLeft == 1 && x < body_skeleton.lShoulder.x)
+                else if(RightOrLeft == 1 && x < lShoulder.x)
                     continue;
 
-                procD =CalcuDistance(rHand, Point(x,y));
+                procD = CalcuDistance(Elbow, Point(x,y));
                 if(procD < minD)
                 {    
                     minD = procD;
@@ -333,6 +420,8 @@ Point findHand(Mat &img,  Mat Skin, Mat People, CascadeClassifier& cascade_hand,
                 }        
             }    
         } 
+    printf("label %d\n", label);
+    printf("facelabel %d\n", facelabel);
 
     if(label != 0)
     {
@@ -344,7 +433,7 @@ Point findHand(Mat &img,  Mat Skin, Mat People, CascadeClassifier& cascade_hand,
         //
         double scale = 1.0;
         vector<Rect> hand;
-        Mat gray, smallImg( cvRound (Skin.rows/scale), cvRound(Skin.cols/scale), CV_8UC1 );
+        Mat gray, smallImg( cvRound (SkinSeg.rows/scale), cvRound(SkinSeg.cols/scale), CV_8UC1 );
         cvtColor( handimg, gray, COLOR_BGR2GRAY );
         resize( gray, smallImg, smallImg.size(), 0, 0, INTER_LINEAR );
         equalizeHist( smallImg, smallImg );
@@ -358,33 +447,37 @@ Point findHand(Mat &img,  Mat Skin, Mat People, CascadeClassifier& cascade_hand,
 
         for(vector<Rect>::const_iterator r = hand.begin(); r != hand.end(); r++)
         {
-            rHand.x = cvRound((r->x + r->width*0.5)*scale);
-            rHand.y = cvRound((r->y + r->height*0.5)*scale);
-            return rHand;
-            rectangle( People, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)),
+            Hand.x = cvRound((r->x + r->width*0.5)*scale);
+            Hand.y = cvRound((r->y + r->height*0.5)*scale);
+            if(RightOrLeft)
+                rHand = Hand;
+            else
+                lHand = Hand;
+            return;
+            /*rectangle(img, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)),
                     cvPoint(cvRound((r->x + r->width-1)*scale), cvRound((r->y + r->height-1)*scale)),
-                    Scalar(0, 255, 255), 3, 8, 0);
+                    Scalar(0, 255, 255), 3, 8, 0);*/
         }
         //find the most far point of the most close area
         //erode(labelImage, labelImage, element_mask);
         //imshow("hand mask", mask);
         FWidth = FWidth * 2.5;
-        for(int x = Elbow.x - FWidth > 0 ? Elbow.x - FWidth: 0; x < (Elbow.x + FWidth < Skin.cols-1 ? Elbow.x + FWidth : Skin.cols -1); x++)
-            for(int y = Elbow.y - FWidth > 0 ? Elbow.y - FWidth: 0; y < (Elbow.y + FWidth < Skin.rows-1 ? Elbow.y + FWidth : Skin.rows -1); y++)
+        for(int x = Elbow.x - FWidth > 0 ? Elbow.x - FWidth: 0; x < (Elbow.x + FWidth < SkinSeg.cols-1 ? Elbow.x + FWidth : SkinSeg.cols -1); x++)
+            for(int y = Elbow.y - FWidth > 0 ? Elbow.y - FWidth: 0; y < (Elbow.y + FWidth < SkinSeg.rows-1 ? Elbow.y + FWidth : SkinSeg.rows -1); y++)
             {
                 if(labelImage.at<int>(y,x) == label)
                 //if(mask.at<int>(x,y) == 255)
                 {    
-                    procD =CalcuDistance(Elbow, Point(x,y));
+                    procD = CalcuDistance(Elbow, Point(x,y));
                     if(procD > maxD)
                     {    
                         maxD = procD;
-                        rHand = Point(x,y);
+                        Hand = Point(x,y);
                     }        
                 }    
             }    
         Mat CircleMask = Mat::zeros(mask.size(), CV_8UC1);
-        circle(CircleMask, rHand, FWidth*0.4, Scalar(255), CV_FILLED, 1, 0);
+        circle(CircleMask, Hand, FWidth*0.4, Scalar(255), CV_FILLED, 1, 0);
         mask &= CircleMask;
         //imshow("hand mask", mask);
         
@@ -411,7 +504,7 @@ Point findHand(Mat &img,  Mat Skin, Mat People, CascadeClassifier& cascade_hand,
                     //myDrawContours(m,hg);
 		        }
                 Moments mo = moments(_hg->contours[_hg->cIdx]);
-                rHand = Point(mo.m10/mo.m00, mo.m01/mo.m00);
+                Hand = Point(mo.m10/mo.m00, mo.m01/mo.m00);
 	        }
         }    
         else
@@ -437,11 +530,14 @@ Point findHand(Mat &img,  Mat Skin, Mat People, CascadeClassifier& cascade_hand,
                     //myDrawContours(m,hg);
 		        }
                 Moments mo = moments(_hg->contours[_hg->cIdx]);
-                rHand = Point(mo.m10/mo.m00, mo.m01/mo.m00);
+                Hand = Point(mo.m10/mo.m00, mo.m01/mo.m00);
 	        }
         }    
 
     }    
 
-  return rHand;
+    if(RightOrLeft)
+        rHand = Hand;
+    else
+        lHand = Hand;
 }    
