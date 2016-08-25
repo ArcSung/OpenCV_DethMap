@@ -7,6 +7,8 @@
 #include <iostream>
 #include <string>
 
+#include "Preprocess.hpp"
+
 using namespace cv;
 using namespace std;
 
@@ -78,18 +80,13 @@ bool HandGesture::detectIfHand(){
 	return isHand;
 }
 
-float HandGesture::distanceP2P(Point a, Point b){
-	float d= sqrt(fabs( pow(a.x-b.x,2) + pow(a.y-b.y,2) )) ;  
-	return d;
-}
-
 // remove fingertips that are too close to 
 // eachother
 void HandGesture::removeRedundantFingerTips(){
 	vector<Point> newFingers;
 	for(int i=0;i<fingerTips.size();i++){
 		for(int j=i;j<fingerTips.size();j++){
-			if(distanceP2P(fingerTips[i],fingerTips[j])<10 && i!=j){
+			if(CalcuDistance(fingerTips[i],fingerTips[j])<10 && i!=j){
 			}else{
 				newFingers.push_back(fingerTips[i]);	
 				break;
@@ -167,14 +164,6 @@ void HandGesture::getFingerNumber(Mat &src, Mat &bw){
 	//addNumberToImg(m);
 }
 
-float HandGesture::getAngle(Point s, Point f, Point e){
-	float l1 = distanceP2P(f,s);
-	float l2 = distanceP2P(f,e);
-	float dot=(s.x-f.x)*(e.x-f.x) + (s.y-f.y)*(e.y-f.y);
-	float angle = acos(dot/(l1*l2));
-	angle=angle*180/PI;
-	return angle;
-}
 
 void HandGesture::eleminateDefects(Mat &src, Mat &bw){
 	int tolerance =  bRect_height/2;
@@ -187,7 +176,7 @@ void HandGesture::eleminateDefects(Mat &src, Mat &bw){
 	    startidx=v[0]; Point ptStart(contours[cIdx][startidx] );
    		endidx=v[1]; Point ptEnd(contours[cIdx][endidx] );
   	    faridx=v[2]; Point ptFar(contours[cIdx][faridx] );
-		if(distanceP2P(ptStart, ptFar) > tolerance && distanceP2P(ptEnd, ptFar) > tolerance && getAngle(ptStart, ptFar, ptEnd  ) < angleTol ){
+		if(CalcuDistance(ptStart, ptFar) > tolerance && CalcuDistance(ptEnd, ptFar) > tolerance && getAngle(ptStart, ptFar, ptEnd  ) < angleTol ){
 			if( ptEnd.y > (bRect.y + bRect.height -bRect.height/4 ) ){
 			}else if( ptStart.y > (bRect.y + bRect.height -bRect.height/4 ) ){
 			}else {
@@ -214,10 +203,10 @@ void HandGesture::removeRedundantEndPoints(vector<Vec4i> newDefects){
 	   		endidx=newDefects[i][1]; Point ptEnd(contours[cIdx][endidx] );
 	    	startidx2=newDefects[j][0]; Point ptStart2(contours[cIdx][startidx2] );
 	   		endidx2=newDefects[j][1]; Point ptEnd2(contours[cIdx][endidx2] );
-			if(distanceP2P(ptStart,ptEnd2) < tolerance ){
+			if(CalcuDistance(ptStart,ptEnd2) < tolerance ){
 				contours[cIdx][startidx]=ptEnd2;
 				break;
-			}if(distanceP2P(ptEnd,ptStart2) < tolerance ){
+			}if(CalcuDistance(ptEnd,ptStart2) < tolerance ){
 				contours[cIdx][startidx2]=ptEnd;
 			}
 		}

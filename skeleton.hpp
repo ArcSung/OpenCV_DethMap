@@ -10,6 +10,7 @@
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/objdetect.hpp"
 #include "handGesture.hpp"
+#include "Preprocess.hpp"
 
 using namespace cv;
 using namespace std;
@@ -35,7 +36,6 @@ class BodySkeleton
     //function
     void init(Mat src,  Mat disp8, Mat &disp8Mask, Rect r, Rect RoiRect, double scale);
     void GetFaceDistance(Mat disp8, Mat &dispMask);
-    double CalcuDistance(Point P1, Point P2);
     void FindFaceConnect(Mat &bw);
     void FindUpperBody(CascadeClassifier& cascade, double scale);
     void FindArm(int RightOrLeft);
@@ -46,8 +46,6 @@ class BodySkeleton
     Mat SkinSeg;
     Mat disp;
     Mat dispMask;
-    void fillContours(Mat &bw);
-    Mat findDistTran(Mat bw);
 };
 
 void findSkeleton(Mat &bw);

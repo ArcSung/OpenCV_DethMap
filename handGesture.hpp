@@ -2,14 +2,14 @@
 #define _HAND_GESTURE_ 
 
 #include <opencv2/imgproc/imgproc.hpp>
-#include<opencv2/opencv.hpp>
+#include <opencv2/opencv.hpp>
 #include <vector>
 #include <string>
+#include "Preprocess.hpp"
 
 using namespace cv;
 using namespace std;
 
-#define PI 3.14159
 
 class HandGesture{
 	public:
@@ -40,7 +40,6 @@ class HandGesture{
 		int fontFace;
 		int prevNrFingerTips;
 		void checkForOneFinger(Mat &src, Mat &bw);
-		float getAngle(Point s,Point f,Point e);	
 		vector<int> fingerNumbers;
 		void analyzeContours();
 		string intToString(int number);
@@ -51,7 +50,6 @@ class HandGesture{
 		void addFingerNumberToVector();
 		Scalar numberColor;
 		int nrNoFinger;
-		float distanceP2P(Point a,Point b);
 		void removeRedundantEndPoints(vector<Vec4i> newDefects);
 		void removeRedundantFingerTips();
 };

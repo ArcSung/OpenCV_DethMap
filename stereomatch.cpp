@@ -1,6 +1,7 @@
 #include "stereomatch.hpp"
 #include "skeleton.hpp"
 #include "motdetect.hpp"
+#include "Preprocess.hpp"
 
 using namespace cv;
 using namespace std;
@@ -28,36 +29,6 @@ static void print_help()
            "[--no-display] [-o <disparity_image>] [-p <point_cloud_file>]\n");
 }
 
-Mat CalcuEDT(Mat DT, Point ref)
-{
-    int channels = DT.channels();
-    Mat EDT = Mat(DT.size(), DT.type(), Scalar(0));
-    int refValue = DT.at<unsigned char>(ref.y, ref.x);
-    if(refValue != 0)
-    {    
-        for(int y = 0; y < DT.rows - 1; y++)
-            for(int x = 0; x < DT.cols*4 - 1; x++)
-            {
-                int Idp =  DT.at<unsigned char>(y, x);
-                if(Idp != 0)
-                {    
-                    int diff = DT.at<unsigned char>(y, x)*(1 + abs(Idp - refValue)/refValue);
-                    if(diff > 255)
-                        diff = 255;
-                    EDT.at<unsigned char>(y, x) = diff;
-                }
-            }   
-        
-        /*for(int y = 0; y < DT.rows; y++)
-            for(int x = 0; x < DT.cols*4; x++)
-            {
-                EDT.at<unsigned char>(y, x) = DT.at<unsigned char>(y,x);
-            }*/    
-        imshow("EDT", EDT);
-    }
-
-    return EDT;
-}    
 
 int main(int argc, char* argv[])
 {
@@ -379,7 +350,7 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
             circle(imgROI, body_skeleton.lElbow, radius*0.2, Scalar(0, 255, 0), 2, 1, 0);
             
             //right hand 
-            if(body_skeleton.CalcuDistance(body_skeleton.rElbow, body_skeleton.rHand) > r->width*0.5)
+            if(CalcuDistance(body_skeleton.rElbow, body_skeleton.rHand) > r->width*0.5)
             {
                 line(imgROI, body_skeleton.rElbow,   body_skeleton.rHand, color, 2, 1, 0);
                 circle(imgROI, body_skeleton.rHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
@@ -404,7 +375,7 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
             }    
 
             //left hand 
-            if(body_skeleton.CalcuDistance(body_skeleton.lElbow, body_skeleton.lHand) > r->width*0.5)
+            if(CalcuDistance(body_skeleton.lElbow, body_skeleton.lHand) > r->width*0.5)
             {
                 line(imgROI, body_skeleton.lElbow,   body_skeleton.lHand, color, 2, 1, 0);
                 circle(imgROI, body_skeleton.lHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
@@ -487,29 +458,6 @@ void init_parameter(Rect roi1, Rect roi2, Mat img)
     sgbm->setMode(alg == STEREO_HH ? StereoSGBM::MODE_HH : StereoSGBM::MODE_SGBM);
 }    
 
-void fillContours(Mat &bw)
-{
-    // Another option is to use dilate/erode/dilate:
-	int morph_operator = 1; // 0: opening, 1: closing, 2: gradient, 3: top hat, 4: black hat
-	int morph_elem = 2; // 0: rect, 1: cross, 2: ellipse
-	int morph_size = 10; // 2*n + 1
-    int operation = morph_operator + 2;
-
-    // Apply the specified morphology operation
-    Mat element = getStructuringElement( morph_elem, Size( 2*morph_size + 1, 2*morph_size+1 ), Point( morph_size, morph_size ) );
-    morphologyEx( bw, bw, operation, element );
-    
-    vector<vector<Point> > contours; // Vector for storing contour
-    vector<Vec4i> hierarchy;
-     
-    findContours(bw, contours, hierarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_SIMPLE); // Find the contours in the image
- 
-    Scalar color(255);
-    for(int i = 0; i < contours.size(); i++) // Iterate through each contour
-    {
-        drawContours(bw, contours, i, color, CV_FILLED, 8, hierarchy);
-    }
-}
 
 
 
