@@ -164,7 +164,7 @@ void findUpperBody( Mat& img, CascadeClassifier& cascade,
         //|CASCADE_DO_ROUGH_SEARCH
         |CASCADE_SCALE_IMAGE
         ,
-        Size(10, 10) );
+        Size(30, 30) );
     for( vector<Rect>::const_iterator r = upbody.begin(); r != upbody.end(); r++, i++ )
     {
         if(r->width > FaceRect.width && r->height > FaceRect.height)
@@ -286,12 +286,13 @@ Point findArm(Mat EDT, BodySkeleton &body_skeleton, int RightOrLeft)
 
 Point findHand(Mat &img,  Mat Skin, Mat People, CascadeClassifier& cascade_hand, BodySkeleton &body_skeleton, int RightOrLeft)
 {
-    int FWidth = body_skeleton.HeadWidth;
     Point rHand;
     Point Elbow;
     Mat labelImage(Skin.size(), CV_32S);
     Mat mask(Skin.size(), CV_8UC1, Scalar(0));
     Mat handimg(Skin.size(), CV_8UC3, Scalar(0));
+    HandGesture *_hg;
+    int FWidth = body_skeleton.HeadWidth;
     int nLabels = connectedComponents(Skin, labelImage, 8);
     int label = 0;
     int minD = FWidth;
@@ -304,11 +305,13 @@ Point findHand(Mat &img,  Mat Skin, Mat People, CascadeClassifier& cascade_hand,
     {    
         rHand = body_skeleton.rElbow;
         Elbow = body_skeleton.rElbow;
+        _hg   = &body_skeleton.RHandGesture;
     }    
     else
     {
         rHand = body_skeleton.lElbow;
         Elbow = body_skeleton.lElbow;
+        _hg   = &body_skeleton.LHandGesture;
     }    
 
     //find the most close area
@@ -339,7 +342,7 @@ Point findHand(Mat &img,  Mat Skin, Mat People, CascadeClassifier& cascade_hand,
         //People.copyTo(handimg, mask);
         //imshow("handimg", handimg);
         //
-        /*double scale = 1.0;
+        double scale = 1.0;
         vector<Rect> hand;
         Mat gray, smallImg( cvRound (Skin.rows/scale), cvRound(Skin.cols/scale), CV_8UC1 );
         cvtColor( handimg, gray, COLOR_BGR2GRAY );
@@ -361,7 +364,7 @@ Point findHand(Mat &img,  Mat Skin, Mat People, CascadeClassifier& cascade_hand,
             rectangle( People, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)),
                     cvPoint(cvRound((r->x + r->width-1)*scale), cvRound((r->y + r->height-1)*scale)),
                     Scalar(0, 255, 255), 3, 8, 0);
-        }*/
+        }
         //find the most far point of the most close area
         //erode(labelImage, labelImage, element_mask);
         //imshow("hand mask", mask);
@@ -383,57 +386,57 @@ Point findHand(Mat &img,  Mat Skin, Mat People, CascadeClassifier& cascade_hand,
         Mat CircleMask = Mat::zeros(mask.size(), CV_8UC1);
         circle(CircleMask, rHand, FWidth*0.4, Scalar(255), CV_FILLED, 1, 0);
         mask &= CircleMask;
-        imshow("hand mask", mask);
+        //imshow("hand mask", mask);
         
         if(RightOrLeft == 1)
         {
-            findContours(mask, body_skeleton.RHandGesture.contours,CV_RETR_EXTERNAL,CV_CHAIN_APPROX_NONE);
-            body_skeleton.RHandGesture.initVectors(); 
-            body_skeleton.RHandGesture.cIdx=findBiggestContour(body_skeleton.RHandGesture.contours);
-            if(body_skeleton.RHandGesture.cIdx!=-1){
+            findContours(mask, _hg->contours,CV_RETR_EXTERNAL,CV_CHAIN_APPROX_NONE);
+            _hg->initVectors(); 
+            _hg->cIdx=findBiggestContour(_hg->contours);
+            if(_hg->cIdx!=-1){
                 //approxPolyDP( Mat(hg->contours[hg->cIdx]), hg->contours[hg->cIdx], 11, true );
-                body_skeleton.RHandGesture.bRect=boundingRect(Mat(body_skeleton.RHandGesture.contours[body_skeleton.RHandGesture.cIdx]));		
-                convexHull(Mat(body_skeleton.RHandGesture.contours[body_skeleton.RHandGesture.cIdx]),body_skeleton.RHandGesture.hullP[body_skeleton.RHandGesture.cIdx],false,true);
-                convexHull(Mat(body_skeleton.RHandGesture.contours[body_skeleton.RHandGesture.cIdx]),body_skeleton.RHandGesture.hullI[body_skeleton.RHandGesture.cIdx],false,false);
-                approxPolyDP( Mat(body_skeleton.RHandGesture.hullP[body_skeleton.RHandGesture.cIdx]),body_skeleton.RHandGesture.hullP[body_skeleton.RHandGesture.cIdx], 18, true );
-                if(body_skeleton.RHandGesture.contours[body_skeleton.RHandGesture.cIdx].size()>3 ){
-                    convexityDefects(body_skeleton.RHandGesture.contours[body_skeleton.RHandGesture.cIdx],body_skeleton.RHandGesture.hullI[body_skeleton.RHandGesture.cIdx],body_skeleton.RHandGesture.defects[body_skeleton.RHandGesture.cIdx]);
-                    body_skeleton.RHandGesture.eleminateDefects(img, mask);
+                _hg->bRect=boundingRect(Mat(_hg->contours[_hg->cIdx]));		
+                convexHull(Mat(_hg->contours[_hg->cIdx]),_hg->hullP[_hg->cIdx],false,true);
+                convexHull(Mat(_hg->contours[_hg->cIdx]),_hg->hullI[_hg->cIdx],false,false);
+                approxPolyDP( Mat(_hg->hullP[_hg->cIdx]),_hg->hullP[_hg->cIdx], 18, true );
+                if(_hg->contours[_hg->cIdx].size()>3 ){
+                    convexityDefects(_hg->contours[_hg->cIdx],_hg->hullI[_hg->cIdx],_hg->defects[_hg->cIdx]);
+                    _hg->eleminateDefects(img, mask);
                 }
-                bool isHand=body_skeleton.RHandGesture.detectIfHand();
+                bool isHand=_hg->detectIfHand();
                 //hg->printGestureInfo(m->src);
                 if(isHand){	
-                    body_skeleton.RHandGesture.getFingerTips(img, mask);
-                    body_skeleton.RHandGesture.drawFingerTips(img);
+                    _hg->getFingerTips(img, mask);
+                    _hg->drawFingerTips(img);
                     //myDrawContours(m,hg);
 		        }
-                Moments mo = moments(body_skeleton.RHandGesture.contours[body_skeleton.RHandGesture.cIdx]);
+                Moments mo = moments(_hg->contours[_hg->cIdx]);
                 rHand = Point(mo.m10/mo.m00, mo.m01/mo.m00);
 	        }
         }    
         else
         {
-            findContours(mask, body_skeleton.LHandGesture.contours,CV_RETR_EXTERNAL,CV_CHAIN_APPROX_NONE);
-            body_skeleton.LHandGesture.initVectors(); 
-            body_skeleton.LHandGesture.cIdx=findBiggestContour(body_skeleton.LHandGesture.contours);
-            if(body_skeleton.LHandGesture.cIdx!=-1){
+            findContours(mask, _hg->contours,CV_RETR_EXTERNAL,CV_CHAIN_APPROX_NONE);
+            _hg->initVectors(); 
+            _hg->cIdx=findBiggestContour(_hg->contours);
+            if(_hg->cIdx!=-1){
                 //approxPolyDP( Mat(hg->contours[hg->cIdx]), hg->contours[hg->cIdx], 11, true );
-                body_skeleton.LHandGesture.bRect=boundingRect(Mat(body_skeleton.LHandGesture.contours[body_skeleton.LHandGesture.cIdx]));		
-                convexHull(Mat(body_skeleton.LHandGesture.contours[body_skeleton.LHandGesture.cIdx]),body_skeleton.LHandGesture.hullP[body_skeleton.LHandGesture.cIdx],false,true);
-                convexHull(Mat(body_skeleton.LHandGesture.contours[body_skeleton.LHandGesture.cIdx]),body_skeleton.LHandGesture.hullI[body_skeleton.LHandGesture.cIdx],false,false);
-                approxPolyDP( Mat(body_skeleton.LHandGesture.hullP[body_skeleton.LHandGesture.cIdx]),body_skeleton.LHandGesture.hullP[body_skeleton.LHandGesture.cIdx], 18, true );
-                if(body_skeleton.LHandGesture.contours[body_skeleton.LHandGesture.cIdx].size()>3 ){
-                    convexityDefects(body_skeleton.LHandGesture.contours[body_skeleton.LHandGesture.cIdx],body_skeleton.LHandGesture.hullI[body_skeleton.LHandGesture.cIdx],body_skeleton.LHandGesture.defects[body_skeleton.LHandGesture.cIdx]);
-                    body_skeleton.LHandGesture.eleminateDefects(img, mask);
+                _hg->bRect=boundingRect(Mat(_hg->contours[_hg->cIdx]));		
+                convexHull(Mat(_hg->contours[_hg->cIdx]),_hg->hullP[_hg->cIdx],false,true);
+                convexHull(Mat(_hg->contours[_hg->cIdx]),_hg->hullI[_hg->cIdx],false,false);
+                approxPolyDP( Mat(_hg->hullP[_hg->cIdx]),_hg->hullP[_hg->cIdx], 18, true );
+                if(_hg->contours[_hg->cIdx].size()>3 ){
+                    convexityDefects(_hg->contours[_hg->cIdx],_hg->hullI[_hg->cIdx],_hg->defects[_hg->cIdx]);
+                    _hg->eleminateDefects(img, mask);
                 }
-                bool isHand=body_skeleton.LHandGesture.detectIfHand();
+                bool isHand=_hg->detectIfHand();
                 //hg->printGestureInfo(m->src);
                 if(isHand){	
-                    body_skeleton.LHandGesture.getFingerTips(img, mask);
-                    body_skeleton.LHandGesture.drawFingerTips(img);
+                    _hg->getFingerTips(img, mask);
+                    _hg->drawFingerTips(img);
                     //myDrawContours(m,hg);
 		        }
-                Moments mo = moments(body_skeleton.LHandGesture.contours[body_skeleton.LHandGesture.cIdx]);
+                Moments mo = moments(_hg->contours[_hg->cIdx]);
                 rHand = Point(mo.m10/mo.m00, mo.m01/mo.m00);
 	        }
         }    

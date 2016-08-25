@@ -231,7 +231,7 @@ int main(int argc, char* argv[])
                 update_bg_model = false;
         }
 
-        inRange(disp8, Scalar(Thres, Thres, Thres), Scalar(256, 256, 256), disp8);
+        //inRange(disp8, Scalar(Thres, Thres, Thres), Scalar(256, 256, 256), disp8);
         flip(disp8, disp8, 1);
 
         flip(img2, img2, 1);
@@ -350,7 +350,7 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
         body_skeleton.rShoulder = Point(0, 0);
         findUpperBody( imgROI, cascade2, scale, Rect(r->x, r->y, r->width, r->height), body_skeleton);
 
-        if(ShoulderCount < 20 && body_skeleton.lShoulder.x == 0 && body_skeleton.lShoulder.y == 0 )
+        if(ShoulderCount < 10 && body_skeleton.lShoulder.x == 0 && body_skeleton.lShoulder.y == 0 )
         {    
             body_skeleton.rShoulder = lastRShoulder;
             body_skeleton.lShoulder = lastLShoulder;
@@ -462,8 +462,8 @@ double GetFaceDistance(int x, int y, Mat disp8, Mat &dispMask)
    double between = 6.50; //the distance between 2 camera0
    int averge;
 
-   for(int i = x - 2; i < x + 2; i++)
-       for(int j = y - 2; j < y + 2; j++)
+   for(int i = x - 1; i <= x + 1; i++)
+       for(int j = y - 1; j <= y + 1; j++)
        {
            if(disp8.at<unsigned char>(y, x) != 0)
            {
@@ -475,8 +475,10 @@ double GetFaceDistance(int x, int y, Mat disp8, Mat &dispMask)
    if(dispD !=0)
    {
         dispD /= averge;
-        inRange(disp8, Scalar(averge), 255, dispMask);
+        inRange(disp8, Scalar(dispD - 20), Scalar(255), dispMask);
+        imshow("dispMask",dispMask);
         return (between*focal*16.0/dispD);
+        //return (dispD);
    } 
    else
     return 0;   
