@@ -116,6 +116,37 @@ Mat FindDistTran(Mat bw)
     return dist;
 }
 
+Mat findSkinColor(Mat src)
+{
+    Mat bgr2hsv, hsv2skin;
+    cvtColor( src, bgr2hsv, cv::COLOR_BGR2HSV );
+    inRange( bgr2hsv, cv::Scalar(0, 58, 0), cv::Scalar(35, 174, 255), hsv2skin);
+    erode(hsv2skin, hsv2skin, Mat());
+    dilate(hsv2skin, hsv2skin, Mat());
+    //fillContours(ycrcb2skinImg);
+    std::vector<std::vector<Point> > contours;
+    std::vector<Vec4i> hierarchy;
+
+    findContours(hsv2skin,
+    contours,
+    hierarchy,
+    RETR_TREE,
+    CHAIN_APPROX_SIMPLE);
+
+    Mat drawing = Mat::zeros( src.size(), CV_8UC1 );
+
+    for( int i = 0; i< contours.size(); i++ ) // iterate through each contour. 
+    {
+        double a=contourArea( contours[i],false);  //  Find the area of contour
+        if(a>200)
+        {
+            drawContours(drawing, contours, i, Scalar(255), CV_FILLED, 8, hierarchy);
+        }
+    } 
+    //imshow("skin color", drawing);
+    return drawing;
+}    
+
 int findBiggestContour(vector<vector<Point> > contours){
     int indexOfBiggestContour = -1;
     int sizeOfBiggestContour = 0;

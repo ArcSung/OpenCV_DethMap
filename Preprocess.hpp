@@ -10,6 +10,7 @@
 using namespace cv;
 using namespace std;
 #define PI 3.14159
+#define DeBug
 
 // global variables ///////////////////////////////////////////////////////////////////////////////
 const cv::Size GAUSSIAN_SMOOTH_FILTER_SIZE = cv::Size(5, 5);
@@ -36,5 +37,6 @@ int findBiggestContour(vector<vector<Point> > contours);
 
 float getAngle(Point s, Point f, Point e);
 
+Mat findSkinColor(Mat src);
 #endif	// PREPROCESS_H
 

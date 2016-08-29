@@ -94,7 +94,7 @@ void  motdetect::update_mhi(const Mat& img, Mat& dst, int diff_threshold)
         count = norm(silh_roi, NORM_L1);; // calculate number of points within silhouette ROI
 
         // check for the case of little motion
-        if (count < comp_rect.width*comp_rect.height * 0.05)
+        if (count < comp_rect.width*comp_rect.height * 0.1)
             continue;
 
         // draw a clock with arrow indicating the direction

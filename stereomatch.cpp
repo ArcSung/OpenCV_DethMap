@@ -173,9 +173,17 @@ int main(int argc, char* argv[])
         img1 = img1r;
         img2 = img2r;
 
+        //cvtColor(img1, img1,CV_BGR2HSV);
+        //cvtColor(img2, img2,CV_BGR2HSV);
+        
+        /*vector<Mat> channels1;
+        vector<Mat> channels2;
+        split(img1, channels1);
+        split(img2, channels2);*/
 
         Mat disp, disp8, disp32F;
 
+        //sgbm->compute(channels1[0], channels2[0], disp);
         sgbm->compute(img1, img2, disp);
 
         if( alg != STEREO_VAR )
@@ -190,6 +198,7 @@ int main(int argc, char* argv[])
         if(open_bg_model)
         {    
             bg_model1->apply(img1, fgmask1, update_bg_model ? -1 : 0);
+            //bg_model1->apply(img1, fgmask1, update_bg_model ? -1 : 0);
 
             threshold(fgmask1, fgmask1, 0, 255, THRESH_BINARY + THRESH_OTSU);
             erode(fgmask1, fgmask1, Mat());
@@ -202,6 +211,8 @@ int main(int argc, char* argv[])
                 update_bg_model = false;
         }
 
+        //cvtColor(img1, img1,CV_HSV2BGR);
+        //cvtColor(img2, img2,CV_HSV2BGR);
         Mat dispMask, dispTemp;
         inRange(disp8, Scalar(Thres, Thres, Thres), Scalar(256, 256, 256), dispMask);
         disp8.copyTo(dispTemp, dispMask);
@@ -290,9 +301,9 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
         //ROI setting
         Point tl, tr, bl, br;
         tl = Point (cvRound((r->x - r->width*2.0)*scale) > 0 ? cvRound((r->x - r->width*2.0)*scale) : 0
-                , cvRound((r->y - r->height*1.0)*scale) > 0 ? cvRound((r->y - r->height*1.0)*scale) : 0); 
+                , cvRound((r->y - r->height*2.0)*scale) > 0 ? cvRound((r->y - r->height*2.0)*scale) : 0); 
         tr = Point (cvRound((r->x + r->width*3.0)*scale) < img.cols ? cvRound((r->x + r->width*3.0)*scale):img.cols, tl.y); 
-        bl = Point (tl.x, cvRound((r->y + r->height*4.0)*scale) < img.rows ? cvRound((r->y + r->height*4.0)*scale) : img.rows); 
+        bl = Point (tl.x, cvRound((r->y + r->height*5.0)*scale) < img.rows ? cvRound((r->y + r->height*5.0)*scale) : img.rows); 
         br = Point (tr.x, bl.y); 
         Rect RoiRect = Rect(tl.x, tl.y, tr.x - tl.x, bl.y - tl.y);
         Rect FaceRect = Rect(r->x, r->y, r->width, r->height);
@@ -337,6 +348,7 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
             body_skeleton.FindArm(0);
             body_skeleton.FindHand(imgROI, cascade_hand, 0);
 
+#ifdef DeBug            
             line(imgROI, body_skeleton.head,   body_skeleton.neck, color, 2, 1, 0);
             line(imgROI, body_skeleton.neck,   body_skeleton.rShoulder, color, 2, 1, 0);
             line(imgROI, body_skeleton.neck,   body_skeleton.lShoulder, color, 2, 1, 0);
@@ -348,7 +360,8 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
             circle(imgROI, body_skeleton.lShoulder, radius*0.2, Scalar(255, 0, 0), 2, 1, 0);
             circle(imgROI, body_skeleton.rElbow, radius*0.2, Scalar(0, 255, 0), 2, 1, 0);
             circle(imgROI, body_skeleton.lElbow, radius*0.2, Scalar(0, 255, 0), 2, 1, 0);
-            
+#endif
+
             //right hand 
             if(CalcuDistance(body_skeleton.rElbow, body_skeleton.rHand) > r->width*0.5)
             {

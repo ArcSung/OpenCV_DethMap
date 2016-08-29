@@ -217,6 +217,7 @@ void HandGesture::removeRedundantEndPoints(vector<Vec4i> newDefects){
 // so another method has to check when there are no
 // convexity defects
 void HandGesture::checkForOneFinger(Mat &src, Mat &bw){
+    printf("checkForOneFinger\n");
 	int yTol=bRect.height/6;
 	Point highestP;
 	highestP.y=src.rows;
@@ -228,7 +229,8 @@ void HandGesture::checkForOneFinger(Mat &src, Mat &bw){
 			cout<<highestP.y<<endl;
 		}
 		d++;	
-	}int n=0;
+	}
+    int n=0;
 	d=hullP[cIdx].begin();
 	while( d!=hullP[cIdx].end() ) {
    	    Point v=(*d);
@@ -237,7 +239,8 @@ void HandGesture::checkForOneFinger(Mat &src, Mat &bw){
 			n++;
 		}
 		d++;	
-	}if(n==0){
+	}
+    if(n==0){
 		fingerTips.push_back(highestP);
 	}
 }
@@ -252,7 +255,7 @@ void HandGesture::drawFingerTips(Mat &src){
    	 }
 }
 
-void HandGesture::getFingerTips(Mat &src, Mat &bw){
+void HandGesture::getFingerTips(Mat &src, Mat &bw, Point pHand, int FaceHeight){
 	fingerTips.clear();
 	int i=0;
 	vector<Vec4i>::iterator d=defects[cIdx].begin();
@@ -265,11 +268,14 @@ void HandGesture::getFingerTips(Mat &src, Mat &bw){
 			fingerTips.push_back(ptStart);
 			i++;
 		}*/
-		fingerTips.push_back(ptEnd);
+        if(CalcuDistance(pHand, ptEnd) > FaceHeight/2.25)
+        {    
+		  fingerTips.push_back(ptEnd);
+        }  
 		d++;
 		i++;
    	}
-	/*if(fingerTips.size()==0){
+	if(fingerTips.size()==0){
 		checkForOneFinger(src, bw);
-	}*/
+	}
 }

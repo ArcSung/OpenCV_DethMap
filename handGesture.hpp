@@ -33,7 +33,7 @@ class HandGesture{
 		void initVectors();
 		void getFingerNumber(Mat &src, Mat &bw);
 		void eleminateDefects(Mat &src, Mat &bw);
-		void getFingerTips(Mat &src, Mat &bw);
+		void getFingerTips(Mat &src, Mat &bw, Point pHand, int FaceHeight);
 		void drawFingerTips(Mat &src);
 	private:
 		string bool2string(bool tf);

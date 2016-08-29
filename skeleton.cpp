@@ -111,36 +111,6 @@ bool FindHandCorner(Mat bin_img, std::vector<Point2f> &ConnerPoint)
 
 
 
-Mat findSkinColor(Mat src)
-{
-    Mat bgr2hsv, hsv2skin;
-    cvtColor( src, bgr2hsv, cv::COLOR_BGR2HSV );
-    inRange( bgr2hsv, cv::Scalar(0, 58, 0), cv::Scalar(35, 174, 255), hsv2skin);
-    erode(hsv2skin, hsv2skin, Mat());
-    dilate(hsv2skin, hsv2skin, Mat());
-    //fillContours(ycrcb2skinImg);
-    std::vector<std::vector<Point> > contours;
-    std::vector<Vec4i> hierarchy;
-
-    findContours(hsv2skin,
-    contours,
-    hierarchy,
-    RETR_TREE,
-    CHAIN_APPROX_SIMPLE);
-
-    Mat drawing = Mat::zeros( src.size(), CV_8UC1 );
-
-    for( int i = 0; i< contours.size(); i++ ) // iterate through each contour. 
-    {
-        double a=contourArea( contours[i],false);  //  Find the area of contour
-        if(a>200)
-        {
-            drawContours(drawing, contours, i, Scalar(255), CV_FILLED, 8, hierarchy);
-        }
-    } 
-    //imshow("skin color", drawing);
-    return drawing;
-}    
 
 void BodySkeleton::FindFaceConnect(Mat &bw)
 {
@@ -300,7 +270,7 @@ void BodySkeleton::FindArm(int RightOrLeft)
             }    
         }    
 
-        printf("Slope %f, TempSlope %f\n", Slope, TempSlope);
+        //printf("Slope %f, TempSlope %f\n", Slope, TempSlope);
         if(abs(Slope - TempSlope) > 0.4 && i > 3)
             break;     
 
@@ -366,8 +336,6 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
                 }        
             }    
         } 
-    printf("label %d\n", label);
-    printf("facelabel %d\n", facelabel);
 
     if(label != 0)
     {
@@ -445,12 +413,12 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
                 bool isHand=_hg->detectIfHand();
                 //hg->printGestureInfo(m->src);
                 if(isHand){	
-                    _hg->getFingerTips(img, mask);
+                    Moments mo = moments(_hg->contours[_hg->cIdx]);
+                    Hand = Point(mo.m10/mo.m00, mo.m01/mo.m00);
+                    _hg->getFingerTips(img, mask, Hand, HeadHeight);
                     _hg->drawFingerTips(img);
                     //myDrawContours(m,hg);
 		        }
-                Moments mo = moments(_hg->contours[_hg->cIdx]);
-                Hand = Point(mo.m10/mo.m00, mo.m01/mo.m00);
 	        }
         }    
         else
@@ -471,12 +439,12 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
                 bool isHand=_hg->detectIfHand();
                 //hg->printGestureInfo(m->src);
                 if(isHand){	
-                    _hg->getFingerTips(img, mask);
+                    Moments mo = moments(_hg->contours[_hg->cIdx]);
+                    Hand = Point(mo.m10/mo.m00, mo.m01/mo.m00);
+                    _hg->getFingerTips(img, mask, Hand, HeadHeight);
                     _hg->drawFingerTips(img);
                     //myDrawContours(m,hg);
 		        }
-                Moments mo = moments(_hg->contours[_hg->cIdx]);
-                Hand = Point(mo.m10/mo.m00, mo.m01/mo.m00);
 	        }
         }    
 
