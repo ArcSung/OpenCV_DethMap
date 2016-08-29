@@ -341,12 +341,14 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
     if(label != 0)
     {
         inRange(labelImage, Scalar(label), Scalar(label), mask);
-        //Mat element_mask = Mat(Size(5, 5), CV_8UC1, Scalar(1));
-        //dilate(mask, mask, element_mask);
-        //People.copyTo(handimg, mask);
+        Mat element_mask = Mat(Size(5, 5), CV_8UC1, Scalar(1));
+        dilate(mask, mask, element_mask);
+        //img.copyTo(handimg, mask);
+        //imshow("mask", mask);
+        //imshow("SkinSeg", SkinSeg);
         //imshow("handimg", handimg);
         //
-        double scale = 1.0;
+        /*double scale = 1.0;
         vector<Rect> hand;
         Mat gray, smallImg( cvRound (SkinSeg.rows/scale), cvRound(SkinSeg.cols/scale), CV_8UC1 );
         cvtColor( handimg, gray, COLOR_BGR2GRAY );
@@ -369,10 +371,10 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
             else
                 lHand = Hand;
             return;
-            /*rectangle(img, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)),
+            rectangle(img, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)),
                     cvPoint(cvRound((r->x + r->width-1)*scale), cvRound((r->y + r->height-1)*scale)),
-                    Scalar(0, 255, 255), 3, 8, 0);*/
-        }
+                    Scalar(0, 255, 255), 3, 8, 0);
+        }*/
         //find the most far point of the most close area
         //erode(labelImage, labelImage, element_mask);
         //imshow("hand mask", mask);
@@ -446,8 +448,8 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
                     Hand = Point(mo.m10/mo.m00, mo.m01/mo.m00);
                     _hg->getFingerTips(img, mask, Hand, HeadHeight);
                     _hg->getFingerNumber(img, mask);
-                    /*_hg->drawFingerTips(img);*/
-                    //myDrawContours(m,hg);
+                    _hg->drawFingerTips(img);
+                    //myDrawContours(img, _hg);
 		        }
 	        }
         }    

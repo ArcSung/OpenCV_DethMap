@@ -162,7 +162,6 @@ void HandGesture::getFingerNumber(Mat &src, Mat &bw){
 		nrNoFinger++;
 		numberColor=Scalar(200,200,200);
 	}
-    printf("frameNumber: %d\n", frameNumber);
 	addNumberToImg(src);
 }
 
@@ -173,6 +172,7 @@ void HandGesture::eleminateDefects(Mat &src, Mat &bw){
 	vector<Vec4i> newDefects;
 	int startidx, endidx, faridx;
 	vector<Vec4i>::iterator d=defects[cIdx].begin();
+    //printf("defects.size %d\n", defects.size());
 	while( d!=defects[cIdx].end() ) {
    	    Vec4i& v=(*d);
 	    startidx=v[0]; Point ptStart(contours[cIdx][startidx] );
@@ -188,6 +188,7 @@ void HandGesture::eleminateDefects(Mat &src, Mat &bw){
 		d++;
 	}
 	nrOfDefects=newDefects.size();
+    //printf("newDefects.size %d\n", newDefects.size());
 	defects[cIdx].swap(newDefects);
 	removeRedundantEndPoints(defects[cIdx]);
 }
@@ -219,7 +220,6 @@ void HandGesture::removeRedundantEndPoints(vector<Vec4i> newDefects){
 // so another method has to check when there are no
 // convexity defects
 void HandGesture::checkForOneFinger(Mat &src, Mat &bw){
-    printf("checkForOneFinger\n");
 	int yTol=bRect.height/6;
 	Point highestP;
 	highestP.y=src.rows;
