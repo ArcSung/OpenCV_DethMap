@@ -323,10 +323,14 @@ int main(int argc, char* argv[])
 }
 
 
-void FaceDetectAndTrack(Mat &img, DetectionBasedTracker &Detector,  vector<Rect> Faces)
+void FaceDetectAndTrack(Mat &img,  DetectionBasedTracker &Detector,  vector<Rect> Faces)
 {
-    Mat GrayFrame;
+    Mat GrayFrame, mask;
     cvtColor(img, GrayFrame, COLOR_RGB2GRAY);
+    mask = findSkinColor(img);
+    dilate(mask, mask, Mat());
+    GrayFrame &= mask;
+    equalizeHist( GrayFrame, GrayFrame);
     Detector.process(GrayFrame);
     Detector.getObjects(Faces);
 
