@@ -80,6 +80,7 @@ int main(int argc, char* argv[])
         {
             break;
         }
+
         if (k == ' ' && found1 !=0 && found2 != 0)
         {
             imagePoints1.push_back(corners1);

@@ -399,6 +399,7 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
         if(RightOrLeft == 1)
         {
             findContours(mask, _hg->contours,CV_RETR_EXTERNAL,CV_CHAIN_APPROX_NONE);
+            _hg->frameNumber++;
             _hg->initVectors(); 
             _hg->cIdx=findBiggestContour(_hg->contours);
             if(_hg->cIdx!=-1){
@@ -425,6 +426,7 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
         else
         {
             findContours(mask, _hg->contours,CV_RETR_EXTERNAL,CV_CHAIN_APPROX_NONE);
+            _hg->frameNumber++;
             _hg->initVectors(); 
             _hg->cIdx=findBiggestContour(_hg->contours);
             if(_hg->cIdx!=-1){
@@ -443,7 +445,8 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
                     Moments mo = moments(_hg->contours[_hg->cIdx]);
                     Hand = Point(mo.m10/mo.m00, mo.m01/mo.m00);
                     _hg->getFingerTips(img, mask, Hand, HeadHeight);
-                    _hg->drawFingerTips(img);
+                    _hg->getFingerNumber(img, mask);
+                    /*_hg->drawFingerTips(img);*/
                     //myDrawContours(m,hg);
 		        }
 	        }
