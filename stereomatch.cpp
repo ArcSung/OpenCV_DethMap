@@ -1,5 +1,4 @@
 #include "stereomatch.hpp"
-#include "skeleton.hpp"
 #include "motdetect.hpp"
 #include "Preprocess.hpp"
 
@@ -9,17 +8,9 @@ using namespace std;
 //motion detect
 motdetect *_motdetect;
 
-//temp shoulder point
-Point lastRShoulder;
-Point lastLShoulder;
-Point lastRHand;
-Point lastLHand;
 
 Rect bgmask;
 
-int ShoulderCount = 20;
-int RHandCount = 5;
-int LHandCount = 5;
 
 int lastPeopleCount = 0;
 Mat TrackMat;
@@ -272,6 +263,7 @@ int main(int argc, char* argv[])
         flip(img1, img1, 1);
 
         FaceDetectAndTrack(img1, Detector, Faces, People);
+        detectAndDraw(img1, disp8, scale, People);
         //detectAndDraw(img1, cascade, scale, disp8, bin_mask);
 
         imshow("left", img1);
@@ -344,7 +336,7 @@ void FaceDetectAndTrack(Mat &img,  DetectionBasedTracker &Detector,  vector<Rect
                         People[s].LostFrame++;
                         People[s].LostState = true;
                         //printf("LostFrame %d\n", People[s].LostFrame);
-                        if(People[s].LostFrame > 25)
+                        if(People[s].LostFrame > 3)
                         {    
                             People.erase(People.begin() + s);
                             continue;
@@ -387,6 +379,9 @@ void FaceDetectAndTrack(Mat &img,  DetectionBasedTracker &Detector,  vector<Rect
                             tempPeople.FaceRect = Faces[i+s];
                             tempPeople.LostFrame = 0;
                             tempPeople.LostState = false;
+                            tempPeople.ShoulderCount = 10;
+                            tempPeople.RHandCount = 10;
+                            tempPeople.LHandCount = 10;
                             People.push_back(tempPeople);
                         }    
                     }    
@@ -403,13 +398,6 @@ void FaceDetectAndTrack(Mat &img,  DetectionBasedTracker &Detector,  vector<Rect
         {
 
             rectangle(TrackMat, Faces[i], Scalar(255), CV_FILLED, 8, 0);
-            rectangle(img, Faces[i], Scalar(0,255,0), 3);
-            string box_text = format("%dP", People[i + lostPeople].Peopleindex);
-            int pos_x = std::max(Faces[i].tl().x + 10, 0);
-            int pos_y = std::max(Faces[i].tl().y + 25, 0);
-            // And now put it into the image:
-            putText(img, box_text, Point(pos_x, pos_y), FONT_HERSHEY_SIMPLEX, 1.0, CV_RGB(0,255,0), 2.0);
-            
             if(People[i + lostPeople].LostState == true)
             {
                 lostPeople++;
@@ -419,6 +407,7 @@ void FaceDetectAndTrack(Mat &img,  DetectionBasedTracker &Detector,  vector<Rect
                 People[i + lostPeople].locat = Point(Faces[i].x + Faces[i].width*0.5, Faces[i].y + Faces[i].height*0.5);
                 People[i + lostPeople].LostFrame = 0;
                 People[i + lostPeople].LostState = false;
+                People[i + lostPeople].FaceRect = Faces[i];
             }
         }
         //printf("after face for loop\n");
@@ -431,50 +420,34 @@ void FaceDetectAndTrack(Mat &img,  DetectionBasedTracker &Detector,  vector<Rect
                 lastPeopleCount++;
         } */   
 
-        string text = format("People %d", lastPeopleCount);
+        /*string text = format("People %d", lastPeopleCount);
         putText(img, text, Point(10, 20), FONT_HERSHEY_SIMPLEX, 1.0, CV_RGB(0,255,0), 2.0);
         text = format("PeopleCount %d", PeopleCount);
-        putText(img, text, Point(10, 60), FONT_HERSHEY_SIMPLEX, 1.0, CV_RGB(0,255,0), 2.0);
+        putText(img, text, Point(10, 60), FONT_HERSHEY_SIMPLEX, 1.0, CV_RGB(0,255,0), 2.0);*/
 }
 
-void detectAndDraw( Mat& img, CascadeClassifier& cascade,
-                    double scale, Mat disp, Mat& mask)
+void detectAndDraw( Mat& img, Mat disp, double scale, vector<_People> &People)
 {
     int i = 0;
     char str[30];
-    vector<Rect> faces;
-    Mat gray, smallImg( cvRound (img.rows/scale), cvRound(img.cols/scale), CV_8UC1 );
 
-    cvtColor( img, gray, COLOR_BGR2GRAY );
-    threshold(disp, mask, 10, 255, THRESH_BINARY);
-    mask &= findSkinColor(img);
-    dilate(mask, mask, Mat());
-    gray &= mask;
-    resize( gray, smallImg, smallImg.size(), 0, 0, INTER_LINEAR );
-    equalizeHist( smallImg, smallImg );
-
-    cascade.detectMultiScale( smallImg, faces,
-        1.1, 2, 0
-        //|CASCADE_FIND_BIGGEST_OBJECT
-        //|CASCADE_DO_ROUGH_SEARCH
-        |CASCADE_SCALE_IMAGE
-        ,
-        Size(30, 30) );
-
-    for( vector<Rect>::const_iterator r = faces.begin(); r != faces.end(); r++, i++ )
+    for(int s = 0; s < People.size(); s++)
     {
-        BodySkeleton body_skeleton;
+        BodySkeleton *body_skeleton =  &People[s].skeleton;
+        Rect r = People[s].FaceRect;
         Mat DT, EDT, Skin, dispMask, people, hand_mot = Mat(img.size(), CV_8UC1, Scalar(0));
+        int pos_x = 0, pos_y = 0;
+        //printf("r.x:%d, r.y:%d, r.width:%d, r.height:%d \n", r.x, r.y, r.width, r.height);
 
         //ROI setting
         Point tl, tr, bl, br;
-        tl = Point (cvRound((r->x - r->width*2.0)*scale) > 0 ? cvRound((r->x - r->width*2.0)*scale) : 0
-                , cvRound((r->y - r->height*2.0)*scale) > 0 ? cvRound((r->y - r->height*2.0)*scale) : 0); 
-        tr = Point (cvRound((r->x + r->width*3.0)*scale) < img.cols ? cvRound((r->x + r->width*3.0)*scale):img.cols, tl.y); 
-        bl = Point (tl.x, cvRound((r->y + r->height*5.0)*scale) < img.rows ? cvRound((r->y + r->height*5.0)*scale) : img.rows); 
+        tl = Point (cvRound((r.x - r.width*2.0)*scale) > 0 ? cvRound((r.x - r.width*2.0)*scale) : 0
+                , cvRound((r.y - r.height*2.0)*scale) > 0 ? cvRound((r.y - r.height*2.0)*scale) : 0); 
+        tr = Point (cvRound((r.x + r.width*3.0)*scale) < img.cols ? cvRound((r.x + r.width*3.0)*scale):img.cols, tl.y); 
+        bl = Point (tl.x, cvRound((r.y + r.height*5.0)*scale) < img.rows ? cvRound((r.y + r.height*5.0)*scale) : img.rows); 
         br = Point (tr.x, bl.y); 
         Rect RoiRect = Rect(tl.x, tl.y, tr.x - tl.x, bl.y - tl.y);
-        Rect FaceRect = Rect(r->x, r->y, r->width, r->height);
+        Rect FaceRect = Rect(r.x, r.y, r.width, r.height);
         Mat imgROI = img(RoiRect);
         Mat handROI = hand_mot(RoiRect);
         Mat dispROI = disp(RoiRect);
@@ -484,119 +457,117 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
 
         // face Point
         Point center;
-        Scalar color = colors[i%8];
-        int radius = cvRound((r->width + r->height)*0.128*scale);
-        double aspect_ratio = (double)r->width/r->height;
-        center.x = cvRound((r->x + r->width*0.5)*scale - tl.x);
-        center.y = cvRound((r->y + r->height*0.5)*scale - tl.y);
+        Scalar color = colors[s%8];
+        int radius = cvRound((r.width + r.height)*0.128*scale);
+        double aspect_ratio = (double)r.width/r.height;
+        center.x = cvRound((r.x + r.width*0.5)*scale - tl.x);
+        center.y = cvRound((r.y + r.height*0.5)*scale - tl.y);
 
-        body_skeleton.init(imgROI, dispROI, dispMask, FaceRect, RoiRect, scale);
-        body_skeleton.FindUpperBody(cascade2, scale);
+        body_skeleton->init(imgROI, dispROI, dispMask, FaceRect, RoiRect, scale);
+        body_skeleton->FindUpperBody(cascade2, scale);
 
-        if(ShoulderCount < 10 && body_skeleton.lShoulder.x == 0 && body_skeleton.lShoulder.y == 0 )
+        if(People[s].ShoulderCount < 10 && body_skeleton->lShoulder.x == 0 && body_skeleton->lShoulder.y == 0 )
         {    
-            body_skeleton.rShoulder = lastRShoulder;
-            body_skeleton.lShoulder = lastLShoulder;
+            body_skeleton->rShoulder = People[s].lastRShoulder;
+            body_skeleton->lShoulder = People[s].lastLShoulder;
         }  
+        else if(body_skeleton->lShoulder.x == 0 && body_skeleton->lShoulder.y == 0)
+            People[s].ShoulderCount++;
+            
 
-        if(body_skeleton.lShoulder.x != 0 && body_skeleton.lShoulder.y != 0 )
+        if(body_skeleton->lShoulder.x != 0 && body_skeleton->lShoulder.y != 0 )
         {
-            lastRShoulder = body_skeleton.rShoulder;
-            lastLShoulder = body_skeleton.lShoulder;
-            ShoulderCount = 0;
+            People[s].lastRShoulder = body_skeleton->rShoulder;
+            People[s].lastLShoulder = body_skeleton->lShoulder;
+            People[s].ShoulderCount = 0;
             //findSkeleton(dispMask);
             //find right arm
-            //EDT = CalcuEDT(DT, body_skeleton.rShoulder);
-            body_skeleton.FindArm(1);
-            body_skeleton.FindHand(imgROI, cascade_hand, 1);
+            //EDT = CalcuEDT(DT, body_skeleton->rShoulder);
+            body_skeleton->FindArm(1);
+            body_skeleton->FindHand(imgROI, cascade_hand, 1);
 
             //waitKey(0);
             //find left arm
-            //EDT = CalcuEDT(EDT, body_skeleton.lShoulder);
-            body_skeleton.FindArm(0);
-            body_skeleton.FindHand(imgROI, cascade_hand, 0);
+            //EDT = CalcuEDT(EDT, body_skeleton->lShoulder);
+            body_skeleton->FindArm(0);
+            body_skeleton->FindHand(imgROI, cascade_hand, 0);
 
 #ifdef DeBug            
-            line(imgROI, body_skeleton.head,   body_skeleton.neck, color, 2, 1, 0);
-            line(imgROI, body_skeleton.neck,   body_skeleton.rShoulder, color, 2, 1, 0);
-            line(imgROI, body_skeleton.neck,   body_skeleton.lShoulder, color, 2, 1, 0);
-            line(imgROI, body_skeleton.rShoulder,   body_skeleton.rElbow, color, 2, 1, 0);
-            line(imgROI, body_skeleton.lShoulder,   body_skeleton.lElbow, color, 2, 1, 0);
-            circle(imgROI, body_skeleton.head, radius*0.2, Scalar(0, 255, 0), 2, 1, 0);
-            circle(imgROI, body_skeleton.neck, radius*0.2, Scalar(0, 255, 0), 2, 1, 0);
-            circle(imgROI, body_skeleton.rShoulder, radius*0.2, Scalar(255, 0, 0), 2, 1, 0);
-            circle(imgROI, body_skeleton.lShoulder, radius*0.2, Scalar(255, 0, 0), 2, 1, 0);
-            circle(imgROI, body_skeleton.rElbow, radius*0.2, Scalar(0, 255, 0), 2, 1, 0);
-            circle(imgROI, body_skeleton.lElbow, radius*0.2, Scalar(0, 255, 0), 2, 1, 0);
+            line(imgROI, body_skeleton->head,   body_skeleton->neck, color, 2, 1, 0);
+            line(imgROI, body_skeleton->neck,   body_skeleton->rShoulder, color, 2, 1, 0);
+            line(imgROI, body_skeleton->neck,   body_skeleton->lShoulder, color, 2, 1, 0);
+            line(imgROI, body_skeleton->rShoulder,   body_skeleton->rElbow, color, 2, 1, 0);
+            line(imgROI, body_skeleton->lShoulder,   body_skeleton->lElbow, color, 2, 1, 0);
+            circle(imgROI, body_skeleton->head, radius*0.2, Scalar(0, 255, 0), 2, 1, 0);
+            circle(imgROI, body_skeleton->neck, radius*0.2, Scalar(0, 255, 0), 2, 1, 0);
+            circle(imgROI, body_skeleton->rShoulder, radius*0.2, Scalar(255, 0, 0), 2, 1, 0);
+            circle(imgROI, body_skeleton->lShoulder, radius*0.2, Scalar(255, 0, 0), 2, 1, 0);
+            circle(imgROI, body_skeleton->rElbow, radius*0.2, Scalar(0, 255, 0), 2, 1, 0);
+            circle(imgROI, body_skeleton->lElbow, radius*0.2, Scalar(0, 255, 0), 2, 1, 0);
 #endif
 
             //right hand 
-            if(CalcuDistance(body_skeleton.rElbow, body_skeleton.rHand) > r->width*0.5)
+            if(CalcuDistance(body_skeleton->rElbow, body_skeleton->rHand) > r.width*0.5)
             {
-                line(imgROI, body_skeleton.rElbow,   body_skeleton.rHand, color, 2, 1, 0);
-                circle(imgROI, body_skeleton.rHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
-                rectangle(hand_mot, cvPoint(body_skeleton.rHand.x - radius*0.5 + tl.x, body_skeleton.rHand.y - radius*0.5 + tl.y)
-                        , cvPoint(body_skeleton.rHand.x + radius*0.5 + tl.x, body_skeleton.rHand.y + radius*0.5 + tl.y)
+                line(imgROI, body_skeleton->rElbow,   body_skeleton->rHand, color, 2, 1, 0);
+                circle(imgROI, body_skeleton->rHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
+                rectangle(hand_mot, cvPoint(body_skeleton->rHand.x - radius*0.5 + tl.x, body_skeleton->rHand.y - radius*0.5 + tl.y)
+                        , cvPoint(body_skeleton->rHand.x + radius*0.5 + tl.x, body_skeleton->rHand.y + radius*0.5 + tl.y)
                         , Scalar(255), CV_FILLED, 8, 0);
 
-                lastRHand = body_skeleton.rHand;
-                RHandCount = 0;
+                People[s].lastRHand = body_skeleton->rHand;
+                People[s].RHandCount = 0;
             }
-            else
-            {
-                if(RHandCount < 5)
-                {    
-                    body_skeleton.rHand = lastRHand;
-                    line(imgROI, body_skeleton.rElbow,   body_skeleton.rHand, color, 2, 1, 0);
-                    circle(imgROI, body_skeleton.rHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
-                    rectangle(hand_mot, cvPoint(body_skeleton.rHand.x - radius*0.5 + tl.x, body_skeleton.rHand.y - radius*0.5 + tl.y)
-                        , cvPoint(body_skeleton.rHand.x + radius*0.5 + tl.x, body_skeleton.rHand.y + radius*0.5 + tl.y)
-                        , Scalar(255), CV_FILLED, 8, 0);
-                }  
-            }    
+            else if(People[s].RHandCount < 3)
+            {    
+                body_skeleton->rHand = People[s].lastRHand;
+                line(imgROI, body_skeleton->rElbow,   body_skeleton->rHand, color, 2, 1, 0);
+                circle(imgROI, body_skeleton->rHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
+                rectangle(hand_mot, cvPoint(body_skeleton->rHand.x - radius*0.5 + tl.x, body_skeleton->rHand.y - radius*0.5 + tl.y)
+                    , cvPoint(body_skeleton->rHand.x + radius*0.5 + tl.x, body_skeleton->rHand.y + radius*0.5 + tl.y)
+                    , Scalar(255), CV_FILLED, 8, 0);
+                People[s].RHandCount++;
+            }  
 
             //left hand 
-            if(CalcuDistance(body_skeleton.lElbow, body_skeleton.lHand) > r->width*0.5)
+            if(CalcuDistance(body_skeleton->lElbow, body_skeleton->lHand) > r.width*0.5)
             {
-                line(imgROI, body_skeleton.lElbow,   body_skeleton.lHand, color, 2, 1, 0);
-                circle(imgROI, body_skeleton.lHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
-                rectangle(hand_mot, cvPoint(body_skeleton.lHand.x - radius*0.5 + tl.x, body_skeleton.lHand.y - radius*0.5 + tl.y)
-                        , cvPoint(body_skeleton.lHand.x + radius*0.5 + tl.x, body_skeleton.lHand.y + radius*0.5 + tl.y)
+                line(imgROI, body_skeleton->lElbow,   body_skeleton->lHand, color, 2, 1, 0);
+                circle(imgROI, body_skeleton->lHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
+                rectangle(hand_mot, cvPoint(body_skeleton->lHand.x - radius*0.5 + tl.x, body_skeleton->lHand.y - radius*0.5 + tl.y)
+                        , cvPoint(body_skeleton->lHand.x + radius*0.5 + tl.x, body_skeleton->lHand.y + radius*0.5 + tl.y)
                         , Scalar(255), CV_FILLED, 8, 0);
-                lastLHand = body_skeleton.lHand;
-                LHandCount = 0;
+                People[s].lastLHand = body_skeleton->lHand;
+                People[s].LHandCount = 0;
             }
-            else
-            {
-                if(LHandCount < 5)
-                {    
-                    body_skeleton.lHand = lastLHand;
-                    line(imgROI, body_skeleton.rElbow,   body_skeleton.rHand, color, 2, 1, 0);
-                    circle(imgROI, body_skeleton.rHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
-                    rectangle(hand_mot, cvPoint(body_skeleton.rHand.x - radius*0.5 + tl.x, body_skeleton.rHand.y - radius*0.5 + tl.y)
-                        , cvPoint(body_skeleton.rHand.x + radius*0.5 + tl.x, body_skeleton.rHand.y + radius*0.5 + tl.y)
-                        , Scalar(255), CV_FILLED, 8, 0);
-                }  
-            }    
+            else if(People[s].LHandCount < 3)
+            {    
+                body_skeleton->lHand = People[s].lastLHand;
+                line(imgROI, body_skeleton->lElbow,   body_skeleton->lHand, color, 2, 1, 0);
+                circle(imgROI, body_skeleton->lHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
+                rectangle(hand_mot, cvPoint(body_skeleton->lHand.x - radius*0.5 + tl.x, body_skeleton->lHand.y - radius*0.5 + tl.y)
+                    , cvPoint(body_skeleton->lHand.x + radius*0.5 + tl.x, body_skeleton->lHand.y + radius*0.5 + tl.y)
+                    , Scalar(255), CV_FILLED, 8, 0);
+                People[s].LHandCount++;
+            }  
 
             //_motdetect->update_mhi(img, hand_mot ,50);
         }    
 
-        rectangle( img, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)),
-                    cvPoint(cvRound((r->x + r->width-1)*scale), cvRound((r->y + r->height-1)*scale)),
+        rectangle( img, cvPoint(cvRound(r.x*scale), cvRound(r.y*scale)),
+                    cvPoint(cvRound((r.x + r.width-1)*scale), cvRound((r.y + r.height-1)*scale)),
                     color, 3, 8, 0);
-        if(body_skeleton.FaceDistance < 100)
-            sprintf(str, "D: %2.2f cm",  body_skeleton.FaceDistance);
+        sprintf(str, "%dP", People[s].Peopleindex);
+        putText(img, str, cvPoint(cvRound(r.x*scale) + 10, cvRound(r.y*scale) + 25), CV_FONT_HERSHEY_DUPLEX, 1, CV_RGB(0, 255, 0));
+        if(body_skeleton->FaceDistance < 100)
+            sprintf(str, "D: %2.2f cm",  body_skeleton->FaceDistance);
         else
         {
-            double Dist =  body_skeleton.FaceDistance/100;
+            double Dist =  body_skeleton->FaceDistance/100;
             sprintf(str, "D: %2.2f m",  Dist);
         }  
-        putText(img, str, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)), CV_FONT_HERSHEY_DUPLEX, 1, CV_RGB(0, 255, 0));
+        putText(img, str, cvPoint(cvRound(r.x*scale), cvRound(r.y*scale)), CV_FONT_HERSHEY_DUPLEX, 1, CV_RGB(0, 255, 0));
     }
-    ShoulderCount++;
-    RHandCount++;
-    LHandCount++;
 }
 
 

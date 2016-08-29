@@ -19,6 +19,7 @@ void BodySkeleton::init(Mat src, Mat disp8, Mat &disp8Mask, Rect r, Rect RoiRect
     GetFaceDistance(disp, dispMask);
     FindFaceConnect(dispMask);
     
+    PeopleSeg.setTo(Scalar(0, 0, 0));
     src.copyTo(PeopleSeg, dispMask);
     SkinSeg = findSkinColor(PeopleSeg);
 }    
@@ -121,9 +122,8 @@ void BodySkeleton::FindFaceConnect(Mat &bw)
     if(label > 0)
     {    
         inRange(labelImage, Scalar(label), Scalar(label), bw);
-        threshold(bw, bw, 1, 255, THRESH_BINARY);
+        threshold(bw, bw, 0, 255, THRESH_BINARY);
     }    
-
 }
 
 void findSkeleton(Mat &bw)
@@ -304,6 +304,7 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
     int facelabel = labelImage.at<int>(head.y, head.x);
     vector<Point2f> ConnerPoint;
     //normalize(labelImage, labelImage, 0, 255, NORM_MINMAX, CV_8U);
+    //imshow("SkinSeg", SkinSeg);
     if(RightOrLeft == 1)
     {    
         Hand  = Point(rElbow);

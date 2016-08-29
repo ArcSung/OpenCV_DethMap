@@ -5,6 +5,7 @@
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/video/background_segm.hpp"
 #include "opencv2/ximgproc/disparity_filter.hpp"
+#include "skeleton.hpp"
 
 #include <vector>
 #include <string>
@@ -34,9 +35,17 @@ public:
     int Peopleindex;
     int LostFrame;
     int LostState;
+    int ShoulderCount;
+    int RHandCount;
+    int LHandCount;
+    //temp shoulder point
+    Point lastRShoulder;
+    Point lastLShoulder;
+    Point lastRHand;
+    Point lastLHand;
     Point locat;
     Rect FaceRect;
-
+    BodySkeleton skeleton;
 };
 
 Ptr<StereoSGBM> sgbm = StereoSGBM::create(0,16,3);
@@ -66,7 +75,6 @@ void FaceDetectAndTrack(Mat &img, DetectionBasedTracker &Detector,  vector<Rect>
 
 double GetFaceDistance(int x, int y, Mat disp8, Mat &dispMask);
 
-void detectAndDraw( Mat& img, CascadeClassifier& cascade,
-                    double scale, Mat disp, Mat &mask);
+void detectAndDraw( Mat& img, Mat disp, double scale, vector<_People> &People);
 
 
