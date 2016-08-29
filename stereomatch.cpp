@@ -21,6 +21,29 @@ int ShoulderCount = 20;
 int RHandCount = 5;
 int LHandCount = 5;
 
+class CascadeDetectorAdapter: public DetectionBasedTracker::IDetector
+{
+    public:
+        CascadeDetectorAdapter(cv::Ptr<cv::CascadeClassifier> detector):
+            IDetector(),
+            Detector(detector)
+        {
+            CV_Assert(detector);
+        }
+
+        void detect(const cv::Mat &Image, std::vector<cv::Rect> &objects)
+        {
+            Detector->detectMultiScale(Image, objects, scaleFactor, minNeighbours, 0, minObjSize, maxObjSize);
+        }
+
+        virtual ~CascadeDetectorAdapter()
+        {}
+
+    private:
+        CascadeDetectorAdapter();
+        cv::Ptr<cv::CascadeClassifier> Detector;
+ };
+
 static void print_help()
 {
     printf("\nDemo stereo matching converting L and R images into disparity and point clouds\n");
@@ -162,6 +185,26 @@ int main(int argc, char* argv[])
     createTrackbar("Threshold", "disparity", &Thres, 256, 0);
     Mat bin_mask;
 
+    std::string cascadeFrontalfilename = "haarcascade_frontalface_alt.xml";
+    cv::Ptr<cv::CascadeClassifier> cascadeTrack = makePtr<cv::CascadeClassifier>(cascadeFrontalfilename);
+    cv::Ptr<DetectionBasedTracker::IDetector> MainDetector = makePtr<CascadeDetectorAdapter>(cascadeTrack);
+
+    cascadeTrack = makePtr<cv::CascadeClassifier>(cascadeFrontalfilename);
+    cv::Ptr<DetectionBasedTracker::IDetector> TrackingDetector = makePtr<CascadeDetectorAdapter>(cascadeTrack);
+
+    DetectionBasedTracker::Parameters params;
+    DetectionBasedTracker Detector(MainDetector, TrackingDetector, params);
+
+    if (!Detector.run())
+    {
+        printf("Error: Detector initialization failed\n");
+        return 2;
+    }
+
+    Mat ReferenceFrame;
+    Mat GrayFrame;
+    vector<Rect> Faces;
+
     while(1)
     {
         camera0 >> img1;
@@ -221,7 +264,15 @@ int main(int argc, char* argv[])
         flip(img2, img2, 1);
         flip(img1, img1, 1);
 
-        detectAndDraw(img1, cascade, scale, disp8, bin_mask);
+        cvtColor(img1, GrayFrame, COLOR_RGB2GRAY);
+        Detector.process(GrayFrame);
+        Detector.getObjects(Faces);
+
+        for (size_t i = 0; i < Faces.size(); i++)
+        {
+            rectangle(img1, Faces[i], Scalar(0,255,0));
+        }
+        //detectAndDraw(img1, cascade, scale, disp8, bin_mask);
 
         imshow("left", img1);
         imshow("disparity", disp8);
