@@ -21,6 +21,18 @@ int ShoulderCount = 20;
 int RHandCount = 5;
 int LHandCount = 5;
 
+class _People{
+
+public:
+    int Faceindex;
+    int Peopleindex;
+    int LostFrame;
+    int LostState;
+    Point locat;
+    Rect FaceRect;
+
+};
+
 class CascadeDetectorAdapter: public DetectionBasedTracker::IDetector
 {
     public:
@@ -201,8 +213,6 @@ int main(int argc, char* argv[])
         return 2;
     }
 
-    Mat ReferenceFrame;
-    Mat GrayFrame;
     vector<Rect> Faces;
 
     while(1)
@@ -264,14 +274,7 @@ int main(int argc, char* argv[])
         flip(img2, img2, 1);
         flip(img1, img1, 1);
 
-        cvtColor(img1, GrayFrame, COLOR_RGB2GRAY);
-        Detector.process(GrayFrame);
-        Detector.getObjects(Faces);
-
-        for (size_t i = 0; i < Faces.size(); i++)
-        {
-            rectangle(img1, Faces[i], Scalar(0,255,0));
-        }
+        FaceDetectAndTrack(img1, Detector, Faces);
         //detectAndDraw(img1, cascade, scale, disp8, bin_mask);
 
         imshow("left", img1);
@@ -319,6 +322,19 @@ int main(int argc, char* argv[])
     return(0);
 }
 
+
+void FaceDetectAndTrack(Mat &img, DetectionBasedTracker &Detector,  vector<Rect> Faces)
+{
+    Mat GrayFrame;
+    cvtColor(img, GrayFrame, COLOR_RGB2GRAY);
+    Detector.process(GrayFrame);
+    Detector.getObjects(Faces);
+
+    for (size_t i = 0; i < Faces.size(); i++)
+    {
+        rectangle(img, Faces[i], Scalar(0,255,0));
+    }
+}
 
 void detectAndDraw( Mat& img, CascadeClassifier& cascade,
                     double scale, Mat disp, Mat& mask)

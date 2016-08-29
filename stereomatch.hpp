@@ -50,6 +50,8 @@ void init_parameter(Rect roi1, Rect roi2, Mat img);
 
 void fillContours(Mat &bw);
 
+void FaceDetectAndTrack(Mat &img, DetectionBasedTracker &Detector,  vector<Rect> Faces);
+
 double GetFaceDistance(int x, int y, Mat disp8, Mat &dispMask);
 
 void detectAndDraw( Mat& img, CascadeClassifier& cascade,
