@@ -27,6 +27,18 @@ CascadeClassifier cascade;
 CascadeClassifier cascade2;
 CascadeClassifier cascade_hand;
 
+class _People{
+
+public:
+    int Faceindex;
+    int Peopleindex;
+    int LostFrame;
+    int LostState;
+    Point locat;
+    Rect FaceRect;
+
+};
+
 Ptr<StereoSGBM> sgbm = StereoSGBM::create(0,16,3);
 int SADWindowSize = 0, numberOfDisparities = 0;
 enum { STEREO_BM=0, STEREO_SGBM=1, STEREO_HH=2, STEREO_VAR=3 };
@@ -50,7 +62,7 @@ void init_parameter(Rect roi1, Rect roi2, Mat img);
 
 void fillContours(Mat &bw);
 
-void FaceDetectAndTrack(Mat &img, DetectionBasedTracker &Detector,  vector<Rect> Faces);
+void FaceDetectAndTrack(Mat &img, DetectionBasedTracker &Detector,  vector<Rect> &Faces, vector<_People> &People);
 
 double GetFaceDistance(int x, int y, Mat disp8, Mat &dispMask);
 
