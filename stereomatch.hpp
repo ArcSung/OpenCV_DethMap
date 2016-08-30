@@ -28,7 +28,7 @@ CascadeClassifier cascade;
 CascadeClassifier cascade2;
 CascadeClassifier cascade_hand;
 
-class _People{
+class People{
 
 public:
     int Faceindex;
@@ -75,10 +75,10 @@ void init_parameter(Rect roi1, Rect roi2, Mat img);
 
 void fillContours(Mat &bw);
 
-void FaceDetectAndTrack(Mat &img, DetectionBasedTracker &Detector,  vector<Rect> &Faces, vector<_People> &People);
+void FaceDetectAndTrack(Mat &img, DetectionBasedTracker &Detector,  vector<Rect> &Faces, vector<People> &_People);
 
 double GetFaceDistance(int x, int y, Mat disp8, Mat &dispMask);
 
-void detectAndDraw( Mat& img, Mat disp, double scale, vector<_People> &People);
+void detectAndDraw( Mat& img, Mat disp, double scale, vector<People> &_People);
 
 

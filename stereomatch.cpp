@@ -199,7 +199,7 @@ int main(int argc, char* argv[])
     }
 
     vector<Rect> Faces;
-    vector<_People> People;
+    vector<People> _People;
     TrackMat = Mat(img1.size(), CV_8UC1, Scalar(0));
     TrackMat2 = Mat(img1.size(), CV_8UC1, Scalar(0));
 
@@ -262,8 +262,8 @@ int main(int argc, char* argv[])
         flip(img2, img2, 1);
         flip(img1, img1, 1);
 
-        FaceDetectAndTrack(img1, Detector, Faces, People);
-        detectAndDraw(img1, disp8, scale, People);
+        FaceDetectAndTrack(img1, Detector, Faces, _People);
+        detectAndDraw(img1, disp8, scale, _People);
         //detectAndDraw(img1, cascade, scale, disp8, bin_mask);
 
         imshow("left", img1);
@@ -312,7 +312,7 @@ int main(int argc, char* argv[])
 }
 
 
-void FaceDetectAndTrack(Mat &img,  DetectionBasedTracker &Detector,  vector<Rect> &Faces, vector<_People> &People)
+void FaceDetectAndTrack(Mat &img,  DetectionBasedTracker &Detector,  vector<Rect> &Faces, vector<People> &_People)
 {
     Mat GrayFrame, mask;
     cvtColor(img, GrayFrame, COLOR_RGB2GRAY);
@@ -329,16 +329,16 @@ void FaceDetectAndTrack(Mat &img,  DetectionBasedTracker &Detector,  vector<Rect
             {
                 //printf("People.size() > Faces.size()\n");
                 
-                for(int s = 0; s< People.size();)
+                for(int s = 0; s< _People.size();)
                 {
-                    if(TrackMat.at<unsigned char>(People[s].locat.y, People[s].locat.y) == 0)
+                    if(TrackMat.at<unsigned char>(_People[s].locat.y, _People[s].locat.y) == 0)
                     {   
-                        People[s].LostFrame++;
-                        People[s].LostState = true;
+                        _People[s].LostFrame++;
+                        _People[s].LostState = true;
                         //printf("LostFrame %d\n", People[s].LostFrame);
-                        if(People[s].LostFrame > 3)
+                        if(_People[s].LostFrame > 3)
                         {    
-                            People.erase(People.begin() + s);
+                            _People.erase(_People.begin() + s);
                             continue;
                         }    
                     }    
@@ -357,12 +357,12 @@ void FaceDetectAndTrack(Mat &img,  DetectionBasedTracker &Detector,  vector<Rect
                         if(TrackMat2.at<unsigned char>(Point(Faces[i+s].x + Faces[i+s].width*0.5, Faces[i+s].y + Faces[i+s].height*0.5)) != 0)
                         {
 
-                            for(int w = 0; w< People.size();)
+                            for(int w = 0; w< _People.size();)
                             {
-                                if(TrackMat2.at<unsigned char>(People[w].locat.y, People[w].locat.y) == People[w].Peopleindex)
+                                if(TrackMat2.at<unsigned char>(_People[w].locat.y, _People[w].locat.y) == _People[w].Peopleindex)
                                 {   
-                                    People[s].LostFrame = 0;
-                                    People[s].LostState = false;
+                                    _People[s].LostFrame = 0;
+                                    _People[s].LostState = false;
                                     break;
                                 }    
                             }    
@@ -370,7 +370,7 @@ void FaceDetectAndTrack(Mat &img,  DetectionBasedTracker &Detector,  vector<Rect
                         else
                         {    
                             ++PeopleCount;
-                            _People tempPeople;
+                            People tempPeople;
                             int tempPindex =  PeopleCount;
                             int tempFindex =  i;
                             tempPeople.Peopleindex = tempPindex;
@@ -383,7 +383,7 @@ void FaceDetectAndTrack(Mat &img,  DetectionBasedTracker &Detector,  vector<Rect
                             tempPeople.RHandCount = 10;
                             tempPeople.LHandCount = 10;
                             tempPeople.HoldMouse = false;
-                            People.push_back(tempPeople);
+                            _People.push_back(tempPeople);
                         }    
                     }    
                 }    
@@ -399,21 +399,21 @@ void FaceDetectAndTrack(Mat &img,  DetectionBasedTracker &Detector,  vector<Rect
         {
 
             rectangle(TrackMat, Faces[i], Scalar(255), CV_FILLED, 8, 0);
-            if(People[i + lostPeople].LostState == true)
+            if(_People[i + lostPeople].LostState == true)
             {
                 lostPeople++;
             }else
             {    
                 //update
-                People[i + lostPeople].locat = Point(Faces[i].x + Faces[i].width*0.5, Faces[i].y + Faces[i].height*0.5);
-                People[i + lostPeople].LostFrame = 0;
-                People[i + lostPeople].LostState = false;
-                People[i + lostPeople].FaceRect = Faces[i];
+                _People[i + lostPeople].locat = Point(Faces[i].x + Faces[i].width*0.5, Faces[i].y + Faces[i].height*0.5);
+                _People[i + lostPeople].LostFrame = 0;
+                _People[i + lostPeople].LostState = false;
+                _People[i + lostPeople].FaceRect = Faces[i];
             }
         }
         //printf("after face for loop\n");
 
-        lastPeopleCount = People.size();
+        lastPeopleCount = _People.size();
         /*for(int s = 0; s< People.size(); s++)
         {
             rectangle(TrackMat2, People[s].FaceRect, Scalar(People[s].Peopleindex), CV_FILLED, 8, 0);
@@ -427,15 +427,15 @@ void FaceDetectAndTrack(Mat &img,  DetectionBasedTracker &Detector,  vector<Rect
         putText(img, text, Point(10, 60), FONT_HERSHEY_SIMPLEX, 1.0, CV_RGB(0,255,0), 2.0);*/
 }
 
-void detectAndDraw( Mat& img, Mat disp, double scale, vector<_People> &People)
+void detectAndDraw( Mat& img, Mat disp, double scale, vector<People> &_People)
 {
     int i = 0;
     char str[30];
 
-    for(int s = 0; s < People.size(); s++)
+    for(int s = 0; s < _People.size(); s++)
     {
-        BodySkeleton *body_skeleton =  &People[s].skeleton;
-        Rect r = People[s].FaceRect;
+        BodySkeleton *body_skeleton =  &_People[s].skeleton;
+        Rect r = _People[s].FaceRect;
         Mat DT, EDT, Skin, dispMask, people, hand_mot = Mat(img.size(), CV_8UC1, Scalar(0));
         int pos_x = 0, pos_y = 0;
         //printf("r.x:%d, r.y:%d, r.width:%d, r.height:%d \n", r.x, r.y, r.width, r.height);
@@ -467,20 +467,20 @@ void detectAndDraw( Mat& img, Mat disp, double scale, vector<_People> &People)
         body_skeleton->init(imgROI, dispROI, dispMask, FaceRect, RoiRect, scale);
         body_skeleton->FindUpperBody(cascade2, scale);
 
-        if(People[s].ShoulderCount < 10 && body_skeleton->lShoulder.x == 0 && body_skeleton->lShoulder.y == 0 )
+        if(_People[s].ShoulderCount < 10 && body_skeleton->lShoulder.x == 0 && body_skeleton->lShoulder.y == 0 )
         {    
-            body_skeleton->rShoulder = People[s].lastRShoulder;
-            body_skeleton->lShoulder = People[s].lastLShoulder;
+            body_skeleton->rShoulder = _People[s].lastRShoulder;
+            body_skeleton->lShoulder = _People[s].lastLShoulder;
         }  
         else if(body_skeleton->lShoulder.x == 0 && body_skeleton->lShoulder.y == 0)
-            People[s].ShoulderCount++;
+            _People[s].ShoulderCount++;
             
 
         if(body_skeleton->lShoulder.x != 0 && body_skeleton->lShoulder.y != 0 )
         {
-            People[s].lastRShoulder = body_skeleton->rShoulder;
-            People[s].lastLShoulder = body_skeleton->lShoulder;
-            People[s].ShoulderCount = 0;
+            _People[s].lastRShoulder = body_skeleton->rShoulder;
+            _People[s].lastLShoulder = body_skeleton->lShoulder;
+            _People[s].ShoulderCount = 0;
             //findSkeleton(dispMask);
             //find right arm
             //EDT = CalcuEDT(DT, body_skeleton->rShoulder);
@@ -516,61 +516,61 @@ void detectAndDraw( Mat& img, Mat disp, double scale, vector<_People> &People)
                         , cvPoint(body_skeleton->rHand.x + radius*0.5 + tl.x, body_skeleton->rHand.y + radius*0.5 + tl.y)
                         , Scalar(255), CV_FILLED, 8, 0);
 
-                People[s].lastRHand = body_skeleton->rHand;
-                People[s].RHandCount = 0;
+                _People[s].lastRHand = body_skeleton->rHand;
+                _People[s].RHandCount = 0;
                 if(body_skeleton->RFingerNum >= 1)
                 {
-                    if(People[s].HoldMouse == false)
+                    if(_People[s].HoldMouse == false)
                     {
-                        People[s].HoldMouse = true;
-                        People[s].pMouseStart = body_skeleton->rHand;
+                        _People[s].HoldMouse = true;
+                        _People[s].pMouseStart = body_skeleton->rHand;
                     }
                     else
                     {
-                        People[s].pMouseEnd = body_skeleton->rHand;
-                        int Distance = CalcuDistance(People[s].pMouseStart,  People[s].pMouseEnd); 
-                        circle(imgROI, People[s].pMouseStart, Distance, Scalar(255, 255, 255), 2, 1, 0);
-                        line(imgROI, People[s].pMouseStart,  People[s].pMouseEnd, Scalar(255, 255, 255), 2, 1, 0);
+                        _People[s].pMouseEnd = body_skeleton->rHand;
+                        int Distance = CalcuDistance(_People[s].pMouseStart,  _People[s].pMouseEnd); 
+                        circle(imgROI, _People[s].pMouseStart, Distance, Scalar(255, 255, 255), 2, 1, 0);
+                        line(imgROI, _People[s].pMouseStart,  _People[s].pMouseEnd, Scalar(255, 255, 255), 2, 1, 0);
                     }
                 }    
                 else
-                    People[s].HoldMouse = false;
+                    _People[s].HoldMouse = false;
             }
-            else if(People[s].RHandCount < 3)
+            else if(_People[s].RHandCount < 3)
             {    
-                body_skeleton->rHand = People[s].lastRHand;
+                body_skeleton->rHand = _People[s].lastRHand;
                 line(imgROI, body_skeleton->rElbow,   body_skeleton->rHand, color, 2, 1, 0);
                 circle(imgROI, body_skeleton->rHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
                 rectangle(hand_mot, cvPoint(body_skeleton->rHand.x - radius*0.5 + tl.x, body_skeleton->rHand.y - radius*0.5 + tl.y)
                     , cvPoint(body_skeleton->rHand.x + radius*0.5 + tl.x, body_skeleton->rHand.y + radius*0.5 + tl.y)
                     , Scalar(255), CV_FILLED, 8, 0);
-                People[s].RHandCount++;
+                _People[s].RHandCount++;
 
                 if(body_skeleton->RFingerNum >= 1)
                 {
-                    if(People[s].HoldMouse == false)
+                    if(_People[s].HoldMouse == false)
                     {
-                        People[s].HoldMouse = true;
-                        People[s].pMouseStart = body_skeleton->rHand;
+                        _People[s].HoldMouse = true;
+                        _People[s].pMouseStart = body_skeleton->rHand;
                     }
                     else
                     {
-                        People[s].pMouseEnd = body_skeleton->rHand;
-                        int Distance = CalcuDistance(People[s].pMouseStart,  People[s].pMouseEnd); 
-                        circle(imgROI, People[s].pMouseStart, Distance, Scalar(255, 255, 255), 2, 1, 0);
-                        line(imgROI, People[s].pMouseStart,  People[s].pMouseEnd, Scalar(255, 255, 255), 2, 1, 0);
+                        _People[s].pMouseEnd = body_skeleton->rHand;
+                        int Distance = CalcuDistance(_People[s].pMouseStart,  _People[s].pMouseEnd); 
+                        circle(imgROI, _People[s].pMouseStart, Distance, Scalar(255, 255, 255), 2, 1, 0);
+                        line(imgROI, _People[s].pMouseStart,  _People[s].pMouseEnd, Scalar(255, 255, 255), 2, 1, 0);
                     }
                 }    
                 else
-                    People[s].HoldMouse = false;
+                    _People[s].HoldMouse = false;
             } 
-            else if(People[s].RHandCount > 3)
+            else if(_People[s].RHandCount > 3)
             { 
-                People[s].HoldMouse = false;
+                _People[s].HoldMouse = false;
                 body_skeleton->ClearFingerNum(1);
             }    
             else
-                People[s].RHandCount++;
+                _People[s].RHandCount++;
 
 
             //left hand 
@@ -581,25 +581,25 @@ void detectAndDraw( Mat& img, Mat disp, double scale, vector<_People> &People)
                 rectangle(hand_mot, cvPoint(body_skeleton->lHand.x - radius*0.5 + tl.x, body_skeleton->lHand.y - radius*0.5 + tl.y)
                         , cvPoint(body_skeleton->lHand.x + radius*0.5 + tl.x, body_skeleton->lHand.y + radius*0.5 + tl.y)
                         , Scalar(255), CV_FILLED, 8, 0);
-                People[s].lastLHand = body_skeleton->lHand;
-                People[s].LHandCount = 0;
+                _People[s].lastLHand = body_skeleton->lHand;
+                _People[s].LHandCount = 0;
             }
-            else if(People[s].LHandCount < 3)
+            else if(_People[s].LHandCount < 3)
             {    
-                body_skeleton->lHand = People[s].lastLHand;
+                body_skeleton->lHand = _People[s].lastLHand;
                 line(imgROI, body_skeleton->lElbow,   body_skeleton->lHand, color, 2, 1, 0);
                 circle(imgROI, body_skeleton->lHand, radius*0.2, Scalar(0, 0, 255), 2, 1, 0);
                 rectangle(hand_mot, cvPoint(body_skeleton->lHand.x - radius*0.5 + tl.x, body_skeleton->lHand.y - radius*0.5 + tl.y)
                     , cvPoint(body_skeleton->lHand.x + radius*0.5 + tl.x, body_skeleton->lHand.y + radius*0.5 + tl.y)
                     , Scalar(255), CV_FILLED, 8, 0);
-                People[s].LHandCount++;
+                _People[s].LHandCount++;
             }  
-            else if(People[s].LHandCount > 3)
+            else if(_People[s].LHandCount > 3)
             {
                 body_skeleton->ClearFingerNum(0);
             }    
             else
-                People[s].LHandCount++;
+                _People[s].LHandCount++;
 
             //_motdetect->update_mhi(img, hand_mot ,50);
         }    
@@ -607,7 +607,7 @@ void detectAndDraw( Mat& img, Mat disp, double scale, vector<_People> &People)
         rectangle( img, cvPoint(cvRound(r.x*scale), cvRound(r.y*scale)),
                     cvPoint(cvRound((r.x + r.width-1)*scale), cvRound((r.y + r.height-1)*scale)),
                     color, 3, 8, 0);
-        sprintf(str, "%dP", People[s].Peopleindex);
+        sprintf(str, "%dP", _People[s].Peopleindex);
         putText(img, str, cvPoint(cvRound(r.x*scale) + 10, cvRound(r.y*scale) + 25), CV_FONT_HERSHEY_DUPLEX, 1, CV_RGB(0, 255, 0));
         if(body_skeleton->FaceDistance < 100)
             sprintf(str, "D: %2.2f cm",  body_skeleton->FaceDistance);
