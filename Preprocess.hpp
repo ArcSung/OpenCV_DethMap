@@ -29,6 +29,8 @@ cv::Mat CalcuEDT(cv::Mat DT, cv::Point ref);
 
 void fillContours(cv::Mat &bw);
 
+void RemoveSmallRegion(Mat &bw, int thres);
+
 double CalcuDistance(Point P1, Point P2);
 
 Mat FindDistTran(Mat bw);

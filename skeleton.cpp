@@ -294,17 +294,18 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
     Mat labelImage(SkinSeg.size(), CV_32S);
     Mat mask(SkinSeg.size(), CV_8UC1, Scalar(0));
     Mat handimg(SkinSeg.size(), CV_8UC3, Scalar(0));
+    Mat Procimg(SkinSeg.size(), CV_8UC1, Scalar(0));
     HandGesture *_hg;
     int FWidth = HeadWidth;
-    int nLabels = connectedComponents(SkinSeg, labelImage, 8);
     int label = 0;
     int minD = FWidth;
     int maxD = 0;
     int procD = 0;
-    int facelabel = labelImage.at<int>(head.y, head.x);
+    int faceDepth = disp.at<unsigned char>(head.y, head.x);
+    inRange(disp, Scalar(faceDepth+3), Scalar(255), Procimg);
+    RemoveSmallRegion(Procimg, FWidth*FWidth/4);
+    int nLabels = connectedComponents(Procimg, labelImage, 8);
     vector<Point2f> ConnerPoint;
-    //normalize(labelImage, labelImage, 0, 255, NORM_MINMAX, CV_8U);
-    //imshow("SkinSeg", SkinSeg);
     if(RightOrLeft == 1)
     {    
         Hand  = Point(rElbow);
@@ -322,7 +323,7 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
     for(int x = Elbow.x - FWidth > 0 ? Elbow.x - FWidth: 0; x < (Elbow.x + FWidth < SkinSeg.cols-1 ? Elbow.x + FWidth : SkinSeg.cols -1); x++)
         for(int y = Elbow.y - FWidth > 0 ? Elbow.y - FWidth: 0; y < (Elbow.y + FWidth < SkinSeg.rows-1 ? Elbow.y + FWidth : SkinSeg.rows -1); y++)
         {
-            if(labelImage.at<int>(y,x) != 0 && labelImage.at<int>(y,x) != facelabel)
+            if(labelImage.at<int>(y,x) != 0)
             {    
                 if(RightOrLeft == 0 && x > rShoulder.x)
                     continue;
@@ -341,8 +342,8 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
     if(label != 0)
     {
         inRange(labelImage, Scalar(label), Scalar(label), mask);
-        Mat element_mask = Mat(Size(5, 5), CV_8UC1, Scalar(1));
-        dilate(mask, mask, element_mask);
+        //Mat element_mask = Mat(Size(5, 5), CV_8UC1, Scalar(1));
+        //dilate(mask, mask, element_mask);
         //img.copyTo(handimg, mask);
         //imshow("mask", mask);
         //imshow("SkinSeg", SkinSeg);
@@ -396,7 +397,7 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
         Mat CircleMask = Mat::zeros(mask.size(), CV_8UC1);
         circle(CircleMask, Hand, FWidth*0.4, Scalar(255), CV_FILLED, 1, 0);
         mask &= CircleMask;
-        //imshow("hand mask", mask);
+        imshow("hand mask", mask);
         
         if(RightOrLeft == 1)
         {
@@ -415,10 +416,9 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
                     _hg->eleminateDefects(img, mask, HeadHeight);
                 }
                 bool isHand=_hg->detectIfHand();
-                //hg->printGestureInfo(m->src);
+                Moments mo = moments(_hg->contours[_hg->cIdx]);
+                Hand = Point(mo.m10/mo.m00, mo.m01/mo.m00);
                 if(isHand){	
-                    Moments mo = moments(_hg->contours[_hg->cIdx]);
-                    Hand = Point(mo.m10/mo.m00, mo.m01/mo.m00);
                     RFingerNum = _hg->getFingerTips(img, mask, Hand, HeadHeight);
                     //_hg->drawFingerTips(img);
 		        }
@@ -442,9 +442,9 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
                 }
                 bool isHand=_hg->detectIfHand();
                 //hg->printGestureInfo(m->src);
+                Moments mo = moments(_hg->contours[_hg->cIdx]);
+                Hand = Point(mo.m10/mo.m00, mo.m01/mo.m00);
                 if(isHand){	
-                    Moments mo = moments(_hg->contours[_hg->cIdx]);
-                    Hand = Point(mo.m10/mo.m00, mo.m01/mo.m00);
                     _hg->getFingerTips(img, mask, Hand, HeadHeight);
                     _hg->getFingerNumber(img, mask);
                     //_hg->drawFingerTips(img);

@@ -96,6 +96,22 @@ void fillContours(Mat &bw)
     }
 }
 
+void RemoveSmallRegion(Mat &bw, int thres)
+{
+    vector<vector<Point> > contours; // Vector for storing contour
+    vector<Vec4i> hierarchy;
+     
+    findContours(bw, contours, hierarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_SIMPLE); // Find the contours in the image
+ 
+    Scalar color(255);
+    bw.setTo(Scalar(0));
+    for(int i = 0; i < contours.size(); i++) // Iterate through each contour
+    {
+        if(contourArea(contours[i], false) > thres)
+            drawContours(bw, contours, i, color, CV_FILLED, 8, hierarchy);
+    }
+}
+
 double CalcuDistance(Point P1, Point P2)
 {
     return norm(P1 - P2);

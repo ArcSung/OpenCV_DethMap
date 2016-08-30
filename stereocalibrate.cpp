@@ -71,30 +71,30 @@ int main(int argc, char* argv[])
         imshow("image1", gray1);
         imshow("image2", gray2);
 
-        k = waitKey(10);
-        /*if (found1 && found2)
-        {
-            k = waitKey(0);
-        }*/
-        if (k == 27)
-        {
+        char c = (char)waitKey(10);
+        if( c == 27 )
             break;
-        }
-
-        if (k == ' ' && found1 !=0 && found2 != 0)
+        switch(c)
         {
-            imagePoints1.push_back(corners1);
-            imagePoints2.push_back(corners2);
-            object_points.push_back(obj);
-            printf ("Corners stored\n");
-            success++;
+            case ' ':
+                if(found1 !=0 && found2 != 0)
+                {
+                    imagePoints1.push_back(corners1);
+                    imagePoints2.push_back(corners2);
+                    object_points.push_back(obj);
+                    printf ("Corners stored\n");
+                    success++;
 
-            waitKey(10);
-            if (success >= numBoards)
-            {
-                break;
-            }
+                    waitKey(10);
+                    if (success >= numBoards)
+                    {
+                        break;
+                    }
+                }    
+            default:
+            ;
         }
+
     }    
 
     destroyAllWindows();
@@ -156,12 +156,9 @@ int main(int argc, char* argv[])
         imshow("image1", imgU1);
         imshow("image2", imgU2);
 
-        k = waitKey(5);
-
-        if(k==27)
-        {
+        char c = (char)waitKey(10);
+        if( c == 27 )
             break;
-        }
     }
 
     camera0.release();
