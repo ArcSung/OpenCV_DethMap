@@ -565,7 +565,8 @@ void detectAndDraw( Mat& img, Mat disp, double scale, vector<_People> &People)
                     People[s].HoldMouse = false;
             } 
             else if(People[s].RHandCount > 3)
-            {
+            { 
+                People[s].HoldMouse = false;
                 body_skeleton->ClearFingerNum(1);
             }    
             else
@@ -658,7 +659,6 @@ void init_parameter(Rect roi1, Rect roi2, Mat img)
     sgbm->setDisp12MaxDiff(1);
     sgbm->setMode(alg == STEREO_HH ? StereoSGBM::MODE_HH : StereoSGBM::MODE_SGBM);
 }    
-
 
 
 
