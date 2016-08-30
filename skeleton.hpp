@@ -26,6 +26,7 @@ class BodySkeleton
     Point lElbow;
     Point rHand;
     Point lHand;
+    int RFingerNum;
     int HeadWidth;
     int HeadHeight;
     double FaceDistance;
@@ -40,6 +41,7 @@ class BodySkeleton
     void FindUpperBody(CascadeClassifier& cascade, double scale);
     void FindArm(int RightOrLeft);
     void FindHand(Mat &img, CascadeClassifier& cascade_hand, int RightOrLeft);
+    void ClearFingerNum(int RightOrLeft);
 
   private:  
     Mat PeopleSeg;

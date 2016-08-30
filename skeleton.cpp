@@ -419,7 +419,7 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
                 if(isHand){	
                     Moments mo = moments(_hg->contours[_hg->cIdx]);
                     Hand = Point(mo.m10/mo.m00, mo.m01/mo.m00);
-                    _hg->getFingerTips(img, mask, Hand, HeadHeight);
+                    RFingerNum = _hg->getFingerTips(img, mask, Hand, HeadHeight);
                     //_hg->drawFingerTips(img);
 		        }
 	        }
@@ -458,4 +458,15 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
         rHand = Hand;
     else
         lHand = Hand;
+}    
+
+void BodySkeleton::ClearFingerNum(int RightOrLeft)
+{
+    HandGesture *_hg;
+    if(RightOrLeft == 1)
+        _hg   = &RHandGesture;
+    else
+        _hg   = &LHandGesture;
+
+    _hg->Clear2DNumberDisplay();
 }    

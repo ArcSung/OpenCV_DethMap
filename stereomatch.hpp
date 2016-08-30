@@ -38,12 +38,16 @@ public:
     int ShoulderCount;
     int RHandCount;
     int LHandCount;
+    bool HoldMouse;
+      
     //temp shoulder point
     Point lastRShoulder;
     Point lastLShoulder;
     Point lastRHand;
     Point lastLHand;
     Point locat;
+    Point pMouseStart;
+    Point pMouseEnd;
     Rect FaceRect;
     BodySkeleton skeleton;
 };

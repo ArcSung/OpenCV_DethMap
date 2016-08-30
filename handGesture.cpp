@@ -141,14 +141,18 @@ void HandGesture::addNumberToImg(Mat &src){
 	}
 }
 
+void HandGesture::Clear2DNumberDisplay(){
+    numbers2Display.clear();
+}
+
 // calculate most frequent numbers of fingers 
 // over 20 frames
 void HandGesture::getFingerNumber(Mat &src, Mat &bw){
 	removeRedundantFingerTips();
-	if(nrNoFinger>12 && isHand){
+	if(nrNoFinger>15 && isHand){
 		numberColor=Scalar(0,200,0);
 		addFingerNumberToVector();
-		if(frameNumber>12){
+		if(frameNumber>15){
 			nrNoFinger=0;
 			frameNumber=0;	
 			computeFingerNumber();	
@@ -176,7 +180,8 @@ void HandGesture::eleminateDefects(Mat &src, Mat &bw, int FaceHeight){
 	    startidx=v[0]; Point ptStart(contours[cIdx][startidx] );
    		endidx=v[1]; Point ptEnd(contours[cIdx][endidx] );
   	    faridx=v[2]; Point ptFar(contours[cIdx][faridx] );
-		if(CalcuDistance(ptStart, ptFar) > tolerance && CalcuDistance(ptEnd, ptFar) > tolerance && getAngle(ptStart, ptFar, ptEnd  ) < angleTol ){
+		if(getAngle(ptStart, ptFar, ptEnd  ) < angleTol ){
+		//if(CalcuDistance(ptStart, ptFar) > tolerance && CalcuDistance(ptEnd, ptFar) > tolerance && getAngle(ptStart, ptFar, ptEnd  ) < angleTol ){
 			if( ptEnd.y > (bRect.y + bRect.height -bRect.height/4 ) ){
 			}else if( ptStart.y > (bRect.y + bRect.height -bRect.height/4 ) ){
 			}else {
@@ -254,7 +259,7 @@ void HandGesture::drawFingerTips(Mat &src){
    	 }
 }
 
-void HandGesture::getFingerTips(Mat &src, Mat &bw, Point pHand, int FaceHeight){
+int HandGesture::getFingerTips(Mat &src, Mat &bw, Point pHand, int FaceHeight){
 	fingerTips.clear();
 	int i=0;
 	vector<Vec4i>::iterator d=defects[cIdx].begin();
@@ -277,4 +282,6 @@ void HandGesture::getFingerTips(Mat &src, Mat &bw, Point pHand, int FaceHeight){
 	if(fingerTips.size()==0){
 		checkForOneFinger(src, bw);
 	}
+
+    return fingerTips.size();
 }
