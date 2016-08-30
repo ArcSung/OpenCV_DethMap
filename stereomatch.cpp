@@ -481,15 +481,12 @@ void detectAndDraw( Mat& img, Mat disp, double scale, vector<People> &_People)
             _People[s].lastRShoulder = body_skeleton->rShoulder;
             _People[s].lastLShoulder = body_skeleton->lShoulder;
             _People[s].ShoulderCount = 0;
-            //findSkeleton(dispMask);
             //find right arm
-            //EDT = CalcuEDT(DT, body_skeleton->rShoulder);
             body_skeleton->FindArm(1);
             body_skeleton->FindHand(imgROI, cascade_hand, 1);
 
             //waitKey(0);
             //find left arm
-            //EDT = CalcuEDT(EDT, body_skeleton->lShoulder);
             body_skeleton->FindArm(0);
             body_skeleton->FindHand(imgROI, cascade_hand, 0);
 

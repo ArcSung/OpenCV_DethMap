@@ -302,12 +302,12 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
     int maxD = 0;
     int procD = 0;
     int faceDepth = disp.at<unsigned char>(head.y, head.x);
-    inRange(disp, Scalar(faceDepth+3), Scalar(255), Procimg);
+    inRange(disp, Scalar(faceDepth+5), Scalar(255), Procimg);
     RemoveSmallRegion(Procimg, FWidth*FWidth/4);
     int nLabels = connectedComponents(Procimg, labelImage, 8);
     vector<Point2f> ConnerPoint;
     if(RightOrLeft == 1)
-    {    
+    {   
         Hand  = Point(rElbow);
         Elbow = Point(rElbow);
         _hg   = &RHandGesture;
@@ -397,7 +397,7 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
         Mat CircleMask = Mat::zeros(mask.size(), CV_8UC1);
         circle(CircleMask, Hand, FWidth*0.4, Scalar(255), CV_FILLED, 1, 0);
         mask &= CircleMask;
-        imshow("hand mask", mask);
+        //imshow("hand mask", mask);
         
         if(RightOrLeft == 1)
         {
@@ -418,7 +418,7 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
                 bool isHand=_hg->detectIfHand();
                 Moments mo = moments(_hg->contours[_hg->cIdx]);
                 Hand = Point(mo.m10/mo.m00, mo.m01/mo.m00);
-                if(isHand){	
+                if(Hand.y < rShoulder.y){	
                     RFingerNum = _hg->getFingerTips(img, mask, Hand, HeadHeight);
                     //_hg->drawFingerTips(img);
 		        }
@@ -444,7 +444,7 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
                 //hg->printGestureInfo(m->src);
                 Moments mo = moments(_hg->contours[_hg->cIdx]);
                 Hand = Point(mo.m10/mo.m00, mo.m01/mo.m00);
-                if(isHand){	
+                if(Hand.y < lShoulder.y){	
                     _hg->getFingerTips(img, mask, Hand, HeadHeight);
                     _hg->getFingerNumber(img, mask);
                     //_hg->drawFingerTips(img);
@@ -455,9 +455,13 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
     }    
 
     if(RightOrLeft)
-        rHand = Hand;
+    {
+        if(Hand.x > lShoulder.x)
+            rHand = Hand;
+    }    
     else
-        lHand = Hand;
+        if(Hand.x < rShoulder.x)
+            lHand = Hand;
 }    
 
 void BodySkeleton::ClearFingerNum(int RightOrLeft)
