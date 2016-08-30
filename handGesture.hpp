@@ -32,7 +32,7 @@ class HandGesture{
 		bool detectIfHand();
 		void initVectors();
 		void getFingerNumber(Mat &src, Mat &bw);
-		void eleminateDefects(Mat &src, Mat &bw);
+		void eleminateDefects(Mat &src, Mat &bw, int FaceHeight);
 		void getFingerTips(Mat &src, Mat &bw, Point pHand, int FaceHeight);
 		void drawFingerTips(Mat &src);
 	private:

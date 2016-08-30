@@ -412,7 +412,7 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
                 approxPolyDP( Mat(_hg->hullP[_hg->cIdx]),_hg->hullP[_hg->cIdx], 18, true );
                 if(_hg->contours[_hg->cIdx].size()>3 ){
                     convexityDefects(_hg->contours[_hg->cIdx],_hg->hullI[_hg->cIdx],_hg->defects[_hg->cIdx]);
-                    _hg->eleminateDefects(img, mask);
+                    _hg->eleminateDefects(img, mask, HeadHeight);
                 }
                 bool isHand=_hg->detectIfHand();
                 //hg->printGestureInfo(m->src);
@@ -420,8 +420,7 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
                     Moments mo = moments(_hg->contours[_hg->cIdx]);
                     Hand = Point(mo.m10/mo.m00, mo.m01/mo.m00);
                     _hg->getFingerTips(img, mask, Hand, HeadHeight);
-                    _hg->drawFingerTips(img);
-                    //myDrawContours(m,hg);
+                    //_hg->drawFingerTips(img);
 		        }
 	        }
         }    
@@ -439,7 +438,7 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
                 approxPolyDP( Mat(_hg->hullP[_hg->cIdx]),_hg->hullP[_hg->cIdx], 18, true );
                 if(_hg->contours[_hg->cIdx].size()>3 ){
                     convexityDefects(_hg->contours[_hg->cIdx],_hg->hullI[_hg->cIdx],_hg->defects[_hg->cIdx]);
-                    _hg->eleminateDefects(img, mask);
+                    _hg->eleminateDefects(img, mask, HeadHeight);
                 }
                 bool isHand=_hg->detectIfHand();
                 //hg->printGestureInfo(m->src);
@@ -448,8 +447,7 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
                     Hand = Point(mo.m10/mo.m00, mo.m01/mo.m00);
                     _hg->getFingerTips(img, mask, Hand, HeadHeight);
                     _hg->getFingerNumber(img, mask);
-                    _hg->drawFingerTips(img);
-                    //myDrawContours(img, _hg);
+                    //_hg->drawFingerTips(img);
 		        }
 	        }
         }    

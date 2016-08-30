@@ -146,7 +146,6 @@ void HandGesture::addNumberToImg(Mat &src){
 void HandGesture::getFingerNumber(Mat &src, Mat &bw){
 	removeRedundantFingerTips();
 	if(nrNoFinger>12 && isHand){
-        printf("bRect.height > src.rows/2 && nrNoFinger>12\n");
 		numberColor=Scalar(0,200,0);
 		addFingerNumberToVector();
 		if(frameNumber>12){
@@ -166,13 +165,12 @@ void HandGesture::getFingerNumber(Mat &src, Mat &bw){
 }
 
 
-void HandGesture::eleminateDefects(Mat &src, Mat &bw){
-	int tolerance =  bRect_height/2;
+void HandGesture::eleminateDefects(Mat &src, Mat &bw, int FaceHeight){
+	int tolerance =  FaceHeight/6;
 	float angleTol=95;
 	vector<Vec4i> newDefects;
 	int startidx, endidx, faridx;
 	vector<Vec4i>::iterator d=defects[cIdx].begin();
-    //printf("defects.size %d\n", defects.size());
 	while( d!=defects[cIdx].end() ) {
    	    Vec4i& v=(*d);
 	    startidx=v[0]; Point ptStart(contours[cIdx][startidx] );
@@ -188,7 +186,6 @@ void HandGesture::eleminateDefects(Mat &src, Mat &bw){
 		d++;
 	}
 	nrOfDefects=newDefects.size();
-    //printf("newDefects.size %d\n", newDefects.size());
 	defects[cIdx].swap(newDefects);
 	removeRedundantEndPoints(defects[cIdx]);
 }
