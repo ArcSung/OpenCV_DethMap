@@ -127,13 +127,13 @@ void HandGesture::addFingerNumberToVector(){
 void HandGesture::addNumberToImg(Mat &src){
 	int xPos=10;
 	int yPos=10;
-	int offset=30;
+	int offset=60;
 	float fontSize=1.5f;
-	int fontFace = FONT_HERSHEY_PLAIN;
+	int fontFace = FONT_HERSHEY_PLAIN*2;
 	for(int i=0;i<numbers2Display.size();i++){
 		rectangle(src,Point(xPos,yPos),Point(xPos+offset,yPos+offset),numberColor, 2);	
-		putText(src, intToString(numbers2Display[i]),Point(xPos+7,yPos+offset-3),fontFace,fontSize,numberColor);
-		xPos+=40;
+		putText(src, intToString(numbers2Display[i]),Point(xPos+14,yPos+offset-9),fontFace,fontSize,numberColor);
+		xPos+=70;
 		if(xPos>(src.cols - src.cols/3.2)){
 			yPos+=40;
 			xPos=10;
@@ -149,10 +149,10 @@ void HandGesture::Clear2DNumberDisplay(){
 // over 20 frames
 void HandGesture::getFingerNumber(Mat &src, Mat &bw){
 	removeRedundantFingerTips();
-	if(nrNoFinger>15 && isHand){
+	if(nrNoFinger>12 && isHand){
 		numberColor=Scalar(0,200,0);
 		addFingerNumberToVector();
-		if(frameNumber>15){
+		if(frameNumber>12){
 			nrNoFinger=0;
 			frameNumber=0;	
 			computeFingerNumber();	

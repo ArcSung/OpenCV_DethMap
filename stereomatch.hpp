@@ -52,7 +52,6 @@ public:
     BodySkeleton skeleton;
 };
 
-Ptr<StereoSGBM> sgbm = StereoSGBM::create(0,16,3);
 int SADWindowSize = 0, numberOfDisparities = 0;
 enum { STEREO_BM=0, STEREO_SGBM=1, STEREO_HH=2, STEREO_VAR=3 };
 int alg = STEREO_SGBM;
@@ -71,7 +70,7 @@ const static Scalar colors[] =  { CV_RGB(0,0,255),
 
 bool read_file(const char* filename);
 
-void init_parameter(Rect roi1, Rect roi2, Mat img);
+void init_parameter(Rect roi1, Rect roi2, Mat left, Mat right);
 
 void fillContours(Mat &bw);
 

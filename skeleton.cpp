@@ -52,67 +52,6 @@ void BodySkeleton::GetFaceDistance(Mat disp8, Mat &dispMask)
         FaceDistance = 0;   
 }
 
-bool FindHandCorner(Mat bin_img, std::vector<Point2f> &ConnerPoint)
-{
-    std::vector<std::vector<Point> > contours;
-    std::vector<Vec4i> hierarchy;
-    Point2f L1, L2;
-
-    findContours(bin_img,
-    contours,
-    hierarchy,
-    RETR_TREE,
-    CHAIN_APPROX_SIMPLE);
-
-    int MaxSize = 0, MaxSizeId = 0;
-
-    if(contours.size() == 0)
-        return false;
-
-    //Find the max contour
-    for( int i = 0; i< contours.size(); i++ ) // iterate through each contour. 
-    {
-        double a=contourArea( contours[i],false);  //  Find the area of contour
-        if(a>MaxSize && a < (bin_img.cols*bin_img.rows)/4)
-        {
-            MaxSize=a;
-            MaxSizeId=i;                //Store the index of largest contour
-        }
-    } 
-
-    if(MaxSize < 100)
-        return false;
-
-    vector< vector< Point> > contours_poly(contours.size());
-    approxPolyDP( Mat(contours[MaxSizeId]), contours_poly[MaxSizeId], 3, true ); // let contours more smooth
-  
-    //find 4 conner in contour
-    int tlx = bin_img.cols, tly = bin_img.rows, brx = 0, bry = 0;
-
-    for(int j=0;j<contours_poly[MaxSizeId].size();j++)
-    {
-        if(tlx < contours_poly[MaxSizeId][j].x)
-            tlx = contours_poly[MaxSizeId][j].x;
-        if(tly < contours_poly[MaxSizeId][j].y)
-            tly = contours_poly[MaxSizeId][j].y;
-        if(brx >  contours_poly[MaxSizeId][j].x)
-            brx = contours_poly[MaxSizeId][j].x;
-        if(bry > contours_poly[MaxSizeId][j].y)
-            bry = contours_poly[MaxSizeId][j].y;
-    }
-
-    L1 = Point2f(tlx, tly);
-    L2 = Point2f(brx, bry);
-
-    ConnerPoint.push_back(L1);
-    ConnerPoint.push_back(L2);
-
-    return true;
-}
-
-
-
-
 void BodySkeleton::FindFaceConnect(Mat &bw)
 {
     Mat labelImage(bw.size(), CV_32S);
@@ -124,29 +63,6 @@ void BodySkeleton::FindFaceConnect(Mat &bw)
         inRange(labelImage, Scalar(label), Scalar(label), bw);
         threshold(bw, bw, 0, 255, THRESH_BINARY);
     }    
-}
-
-void findSkeleton(Mat &bw)
-{
-    Mat element = cv::getStructuringElement(cv::MORPH_CROSS, cv::Size(9, 9));
-    bool done;
-    Mat skel(bw.size(), CV_8UC1, cv::Scalar(0));
-    Mat temp(bw.size(), CV_8UC1);
-
-    do
-    {
-        cv::morphologyEx(bw, temp, cv::MORPH_OPEN, element);
-        cv::bitwise_not(temp, temp);
-        cv::bitwise_and(bw, temp, temp);
-        cv::bitwise_or(skel, temp, skel);
-        cv::erode(bw, bw, element);
- 
-        double max;
-        cv::minMaxLoc(bw, 0, &max);
-        done = (max == 0);
-    } while (!done);
-
-    //imshow("skeleton", skel);
 }
 
 void BodySkeleton::FindUpperBody(CascadeClassifier& cascade, double scale)
@@ -204,11 +120,6 @@ void BodySkeleton::FindArm(int RightOrLeft)
 
     Mat proc;
     GaussianBlur(EDT, proc, Size(5, 5), 0);
-    //inRange(proc, Scalar(refValue - 10 > 0? refValue - 10 : 2), Scalar(refValue + 3), proc);
-    //threshold( proc, proc, 0, 255, THRESH_BINARY|THRESH_OTSU );
-    //erode(proc, proc, Mat());
-    //imshow("proc", proc);
-    //return elbow;
 
     for(int i = 0; i < 5; i++)
     {
@@ -219,7 +130,6 @@ void BodySkeleton::FindArm(int RightOrLeft)
         if(RightOrLeft == 1)
         {
             for(int x = elbow.x + fheight/4 > EDT.cols - 1 ? EDT.cols - 1 : elbow.x + fheight/4; x > (elbow.x - fheight/4 < 0 ? 0 : elbow.x - fheight/4); x--)
-            //for(int x = elbow.x - fheight/4 < 0 ? 0 : elbow.x - fheight/4; x < (elbow.x + fheight/4 > EDT.cols-1 ? EDT.cols : elbow.x + fheight/4); x++)
             {
                 for(int y = elbow.y + fheight/4 > EDT.rows - 1 ? EDT.rows - 1 : elbow.y + fheight/4; y > (elbow.y - fheight/4 < 0 ? 0 : elbow.y - fheight/4); y--)
                 {
@@ -246,7 +156,6 @@ void BodySkeleton::FindArm(int RightOrLeft)
         {
 
             for(int x = elbow.x - fheight/4 < 0 ? 0 : elbow.x - fheight/4; x < (elbow.x + fheight/4 > EDT.cols-1 ? EDT.cols : elbow.x + fheight/4); x++)
-            //for(int x = elbow.x + fheight/4 > EDT.cols - 1 ? EDT.cols - 1 : elbow.x + fheight/4; x > (elbow.x - fheight/4 < 0 ? 0 : elbow.x - fheight/4); x--)
             {
                 for(int y = elbow.y + fheight/4 > EDT.rows - 1 ? EDT.rows - 1 : elbow.y + fheight/4; y > (elbow.y - fheight/4 < 0 ? 0 : elbow.y - fheight/4); y--)
                 {
@@ -303,6 +212,7 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
     int procD = 0;
     int faceDepth = disp.at<unsigned char>(head.y, head.x);
     inRange(disp, Scalar(faceDepth+5), Scalar(255), Procimg);
+    Procimg &= SkinSeg;
     RemoveSmallRegion(Procimg, FWidth*FWidth/4);
     int nLabels = connectedComponents(Procimg, labelImage, 8);
     vector<Point2f> ConnerPoint;
@@ -323,7 +233,7 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
     for(int x = Elbow.x - FWidth > 0 ? Elbow.x - FWidth: 0; x < (Elbow.x + FWidth < SkinSeg.cols-1 ? Elbow.x + FWidth : SkinSeg.cols -1); x++)
         for(int y = Elbow.y - FWidth > 0 ? Elbow.y - FWidth: 0; y < (Elbow.y + FWidth < SkinSeg.rows-1 ? Elbow.y + FWidth : SkinSeg.rows -1); y++)
         {
-            if(labelImage.at<int>(y,x) != 0)
+            if(labelImage.at<int>(y,x) != 0 )
             {    
                 if(RightOrLeft == 0 && x > rShoulder.x)
                     continue;
@@ -342,43 +252,6 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
     if(label != 0)
     {
         inRange(labelImage, Scalar(label), Scalar(label), mask);
-        //Mat element_mask = Mat(Size(5, 5), CV_8UC1, Scalar(1));
-        //dilate(mask, mask, element_mask);
-        //img.copyTo(handimg, mask);
-        //imshow("mask", mask);
-        //imshow("SkinSeg", SkinSeg);
-        //imshow("handimg", handimg);
-        //
-        /*double scale = 1.0;
-        vector<Rect> hand;
-        Mat gray, smallImg( cvRound (SkinSeg.rows/scale), cvRound(SkinSeg.cols/scale), CV_8UC1 );
-        cvtColor( handimg, gray, COLOR_BGR2GRAY );
-        resize( gray, smallImg, smallImg.size(), 0, 0, INTER_LINEAR );
-        equalizeHist( smallImg, smallImg );
-
-        cascade_hand.detectMultiScale( smallImg, hand,
-            1.1, 2, 0
-            |CASCADE_FIND_BIGGEST_OBJECT
-            //|CASCADE_DO_ROUGH_SEARCH
-            |CASCADE_SCALE_IMAGE
-            ,Size(10, 10) );
-
-        for(vector<Rect>::const_iterator r = hand.begin(); r != hand.end(); r++)
-        {
-            Hand.x = cvRound((r->x + r->width*0.5)*scale);
-            Hand.y = cvRound((r->y + r->height*0.5)*scale);
-            if(RightOrLeft)
-                rHand = Hand;
-            else
-                lHand = Hand;
-            return;
-            rectangle(img, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)),
-                    cvPoint(cvRound((r->x + r->width-1)*scale), cvRound((r->y + r->height-1)*scale)),
-                    Scalar(0, 255, 255), 3, 8, 0);
-        }*/
-        //find the most far point of the most close area
-        //erode(labelImage, labelImage, element_mask);
-        //imshow("hand mask", mask);
         FWidth = FWidth * 2.5;
         for(int x = Elbow.x - FWidth > 0 ? Elbow.x - FWidth: 0; x < (Elbow.x + FWidth < SkinSeg.cols-1 ? Elbow.x + FWidth : SkinSeg.cols -1); x++)
             for(int y = Elbow.y - FWidth > 0 ? Elbow.y - FWidth: 0; y < (Elbow.y + FWidth < SkinSeg.rows-1 ? Elbow.y + FWidth : SkinSeg.rows -1); y++)
@@ -406,7 +279,6 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
             _hg->initVectors(); 
             _hg->cIdx=findBiggestContour(_hg->contours);
             if(_hg->cIdx!=-1){
-                //approxPolyDP( Mat(hg->contours[hg->cIdx]), hg->contours[hg->cIdx], 11, true );
                 _hg->bRect=boundingRect(Mat(_hg->contours[_hg->cIdx]));		
                 convexHull(Mat(_hg->contours[_hg->cIdx]),_hg->hullP[_hg->cIdx],false,true);
                 convexHull(Mat(_hg->contours[_hg->cIdx]),_hg->hullI[_hg->cIdx],false,false);

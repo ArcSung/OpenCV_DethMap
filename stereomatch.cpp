@@ -3,6 +3,7 @@
 #include "Preprocess.hpp"
 
 using namespace cv;
+using namespace cv::ximgproc;
 using namespace std;
 
 //motion detect
@@ -67,7 +68,7 @@ int main(int argc, char* argv[])
     bool update_bg_model = true;
     bool open_bg_model = false;
     int FrameCount = 0;
-    int Thres = 85;
+    int Thres = 50;
     if( !cascade.load(cascadeName)){ printf("--(!)Error cascade\n"); return -1; };
     if( !cascade2.load(cascadeName2)){ printf("--(!)Error cascade2\n"); return -1; };
     if( !cascade_hand.load(cascadeName3)){ printf("--(!)Error cascade3\n"); return -1; };
@@ -76,51 +77,8 @@ int main(int argc, char* argv[])
 
     for( int i = 1; i < argc; i++ )
     {
-        if( strncmp(argv[i], algorithm_opt, strlen(algorithm_opt)) == 0 )
-        {
-            char* _alg = argv[i] + strlen(algorithm_opt);
-            alg = strcmp(_alg, "bm") == 0 ? STEREO_BM :
-                  strcmp(_alg, "sgbm") == 0 ? STEREO_SGBM :
-                  strcmp(_alg, "hh") == 0 ? STEREO_HH :
-                  strcmp(_alg, "var") == 0 ? STEREO_VAR : -1;
-            if( alg < 0 )
-            {
-                printf("Command-line parameter error: Unknown stereo algorithm\n\n");
-                return -1;
-            }
-        }
-        else if( strncmp(argv[i], maxdisp_opt, strlen(maxdisp_opt)) == 0 )
-        {
-            if( sscanf( argv[i] + strlen(maxdisp_opt), "%d", &numberOfDisparities ) != 1 ||
-                numberOfDisparities < 1 || numberOfDisparities % 16 != 0 )
-            {
-                printf("Command-line parameter error: The max disparity (--maxdisparity=<...>) must be a positive integer divisible by 16\n");
-                return -1;
-            }
-        }
-        else if( strncmp(argv[i], blocksize_opt, strlen(blocksize_opt)) == 0 )
-        {
-            if( sscanf( argv[i] + strlen(blocksize_opt), "%d", &SADWindowSize ) != 1 ||
-                SADWindowSize < 1 || SADWindowSize % 2 != 1 )
-            {
-                printf("Command-line parameter error: The block size (--blocksize=<...>) must be a positive odd number\n");
-                return -1;
-            }
-        }
-        else if( strncmp(argv[i], scale_opt, strlen(scale_opt)) == 0 )
-        {
-            if( sscanf( argv[i] + strlen(scale_opt), "%f", &scale ) != 1 || scale < 0 )
-            {
-                printf("Command-line parameter error: The scale factor (--scale=<...>) must be a positive floating-point number\n");
-                return -1;
-            }
-        }
-        else if( strcmp(argv[i], nodisplay_opt) == 0 )
-            no_display = true;
-        else if( strcmp(argv[i], "-i" ) == 0 )
+        if( strcmp(argv[i], "-i" ) == 0 )
             intrinsic_filename = argv[++i];
-        else if( strcmp(argv[i], "-p" ) == 0 )
-            point_cloud_filename = argv[++i];
         else
         {
             printf("Command-line parameter error: unknown option %s\n", argv[i]);
@@ -139,38 +97,32 @@ int main(int argc, char* argv[])
     camera0 >> img1;
     camera1 >> img2;
 
-    if (scale != 1.f)
-    {
-        Mat temp1, temp2;
-        int method = scale < 1 ? INTER_AREA : INTER_CUBIC;
-        resize(img1, temp1, Size(), scale, scale, method);
-        img1 = temp1;
-        resize(img2, temp2, Size(), scale, scale, method);
-        img2 = temp2;
-    }
+    int wsize = 3;
+    int max_disp = 160;
+    Mat left_for_matcher, right_for_matcher;
+    Ptr<DisparityWLSFilter> wls_filter;
 
-    Size img_size = img1.size();
+    left_for_matcher  = img1.clone();
+    right_for_matcher = img2.clone();
 
-    Rect roi1, roi2;
-    Mat Q;
+    int cn = img1.channels();
+    Ptr<StereoSGBM> left_matcher  = StereoSGBM::create(0, max_disp, wsize);
+    left_matcher->setP1(8*cn*wsize*wsize);
+    left_matcher->setP2(32*cn*wsize*wsize);
+    left_matcher->setPreFilterCap(63);
+    left_matcher->setMode(StereoSGBM::MODE_SGBM);
+    wls_filter = createDisparityWLSFilter(left_matcher);
+    Ptr<StereoMatcher> right_matcher = createRightMatcher(left_matcher);
 
-
-    init_parameter(roi1, roi2, img1);
-
-    if(!read_file(intrinsic_filename))
-        return -1;
-
-
-    M1 *= scale;
-    M2 *= scale;
-
-
-    stereoRectify( M1, D1, M2, D2, img_size, R, T, R1, R2, P1, P2, Q, CALIB_ZERO_DISPARITY, -1, img_size, &roi1, &roi2 );
-
-    initUndistortRectifyMap(M1, D1, R1, P1, img_size, CV_16SC2, map11, map12);
-    initUndistortRectifyMap(M2, D2, R2, P2, img_size, CV_16SC2, map21, map22);
-
-    Mat img1r, img2r;
+    /*left_matcher->setP1(8*cn*left_matcherWinSize*left_matcherWinSize);
+    left_matcher->setP2(32*cn*left_matcherWinSize*left_matcherWinSize);
+    left_matcher->setMinDisparity(0);
+    left_matcher->setNumDisparities(numberOfDisparities);
+    left_matcher->setSpeckleRange(32);
+    left_matcher->setDisp12MaxDiff(1);
+    left_matcher->setMode(alg == STEREO_HH ? StereoSGBM::MODE_HH : StereoSGBM::MODE_SGBM);
+    Ptr<StereoMatcher> right_matcher = createRightMatcher(left_matcher);
+    wls_filter = createDisparityWLSFilter(left_matcher);*/
 
     //fg bg segment
     Ptr<BackgroundSubtractor> bg_model1 =  
@@ -182,6 +134,7 @@ int main(int argc, char* argv[])
     createTrackbar("Threshold", "disparity", &Thres, 256, 0);
     Mat bin_mask;
 
+    //Face Tracking init
     std::string cascadeFrontalfilename = "haarcascade_frontalface_alt.xml";
     cv::Ptr<cv::CascadeClassifier> cascadeTrack = makePtr<cv::CascadeClassifier>(cascadeFrontalfilename);
     cv::Ptr<DetectionBasedTracker::IDetector> MainDetector = makePtr<CascadeDetectorAdapter>(cascadeTrack);
@@ -208,11 +161,6 @@ int main(int argc, char* argv[])
         camera0 >> img1;
         camera1 >> img2;
 
-        remap(img1, img1r, map11, map12, INTER_LINEAR);
-        remap(img2, img2r, map21, map22, INTER_LINEAR);
-
-        img1 = img1r;
-        img2 = img2r;
 
         //cvtColor(img1, img1,CV_BGR2HSV);
         //cvtColor(img2, img2,CV_BGR2HSV);
@@ -222,18 +170,22 @@ int main(int argc, char* argv[])
         split(img1, channels1);
         split(img2, channels2);*/
 
-        Mat disp, disp8, disp32F;
+        Mat left_disp, right_disp, disp8, disp32F;
+        Mat filtered_disp;
+        Mat conf_map = Mat(img1.rows, img1.cols,CV_8U);
+        conf_map = Scalar(255);
 
         //sgbm->compute(channels1[0], channels2[0], disp);
-        sgbm->compute(img1, img2, disp);
+        left_matcher-> compute(img1, img2, left_disp);
+        right_matcher->compute(img2, img1, right_disp);
 
-        if( alg != STEREO_VAR )
-        {    
-            disp.convertTo(disp8, CV_8U, 255/(numberOfDisparities*16.));
-            disp.convertTo(disp32F, CV_32F, 1./16);
-        }    
-        else
-            disp.convertTo(disp8, CV_8U);
+        wls_filter->setLambda(800);
+        wls_filter->setSigmaColor(1.5);
+        wls_filter->filter(left_disp, img1, filtered_disp,right_disp);
+        //! [filtering]
+        conf_map = wls_filter->getConfidenceMap();
+        Mat filtered_disp_vis;
+        getDisparityVis(filtered_disp,filtered_disp_vis, 1.0);
 
         /*fg bg segment*/
         if(open_bg_model)
@@ -247,7 +199,7 @@ int main(int argc, char* argv[])
             fillContours(fgmask1);
 
             FrameCount++;
-            disp8 = disp8 & fgmask1;
+            filtered_disp_vis = filtered_disp_vis & fgmask1;
             if(FrameCount > 20)
                 update_bg_model = false;
         }
@@ -255,18 +207,21 @@ int main(int argc, char* argv[])
         //cvtColor(img1, img1,CV_HSV2BGR);
         //cvtColor(img2, img2,CV_HSV2BGR);
         Mat dispMask, dispTemp;
-        inRange(disp8, Scalar(Thres, Thres, Thres), Scalar(256, 256, 256), dispMask);
-        disp8.copyTo(dispTemp, dispMask);
+        //filtered_disp_vis.convertTo(disp8, CV_8U, 255/(numberOfDisparities*16.));
+        inRange(filtered_disp_vis ,Scalar(Thres, Thres, Thres), Scalar(256, 256, 256), dispMask);
+        filtered_disp_vis.copyTo(dispTemp, dispMask);
+        
+        Rect ROI(150, 0, dispTemp.cols - 150, dispTemp.rows);
+        Mat dispROI = dispTemp(ROI);
+        Mat imgProc = img1(ROI);
 
-        flip(dispTemp, disp8, 1);
-        flip(img2, img2, 1);
-        flip(img1, img1, 1);
+        flip(dispROI, disp8, 1);
+        flip(imgProc, imgProc, 1);
 
-        FaceDetectAndTrack(img1, Detector, Faces, _People);
-        detectAndDraw(img1, disp8, scale, _People);
-        //detectAndDraw(img1, cascade, scale, disp8, bin_mask);
+        FaceDetectAndTrack(imgProc, Detector, Faces, _People);
+        detectAndDraw(imgProc, disp8, scale, _People);
 
-        imshow("left", img1);
+        imshow("left", imgProc);
         imshow("disparity", disp8);
 
 
@@ -295,11 +250,11 @@ int main(int argc, char* argv[])
             default:
             ;
         }
-        disp.release();
+        left_disp.release();
         disp8.release();
         disp32F.release();
-        dispMask.release();
-        dispTemp.release();
+        //dispMask.release();
+        //dispTemp.release();
     }    
     
 
@@ -635,26 +590,6 @@ bool read_file(const char* filename)
     fs["T"] >> T;
 
     return true;
-}    
-
-void init_parameter(Rect roi1, Rect roi2, Mat img)
-{
-    numberOfDisparities = numberOfDisparities > 0 ? numberOfDisparities : ((img.size().width/8) + 15) & -16;
-    sgbm->setPreFilterCap(63);
-    int sgbmWinSize = SADWindowSize > 0 ? SADWindowSize : 3;
-    sgbm->setBlockSize(sgbmWinSize);
-
-    int cn = img.channels();
-
-    sgbm->setP1(8*cn*sgbmWinSize*sgbmWinSize);
-    sgbm->setP2(32*cn*sgbmWinSize*sgbmWinSize);
-    sgbm->setMinDisparity(0);
-    sgbm->setNumDisparities(numberOfDisparities);
-    sgbm->setUniquenessRatio(10);
-    sgbm->setSpeckleWindowSize(100);
-    sgbm->setSpeckleRange(32);
-    sgbm->setDisp12MaxDiff(1);
-    sgbm->setMode(alg == STEREO_HH ? StereoSGBM::MODE_HH : StereoSGBM::MODE_SGBM);
 }    
 
 
