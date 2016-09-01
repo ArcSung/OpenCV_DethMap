@@ -127,13 +127,13 @@ void HandGesture::addFingerNumberToVector(){
 void HandGesture::addNumberToImg(Mat &src){
 	int xPos=10;
 	int yPos=10;
-	int offset=60;
+	int offset=30;
 	float fontSize=1.5f;
-	int fontFace = FONT_HERSHEY_PLAIN*2;
+	int fontFace = FONT_HERSHEY_PLAIN;
 	for(int i=0;i<numbers2Display.size();i++){
 		rectangle(src,Point(xPos,yPos),Point(xPos+offset,yPos+offset),numberColor, 2);	
-		putText(src, intToString(numbers2Display[i]),Point(xPos+14,yPos+offset-9),fontFace,fontSize,numberColor);
-		xPos+=70;
+		putText(src, intToString(numbers2Display[i]),Point(xPos+7,yPos+offset-3),fontFace,fontSize,numberColor);
+		xPos+=40;
 		if(xPos>(src.cols - src.cols/3.2)){
 			yPos+=40;
 			xPos=10;

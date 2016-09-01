@@ -68,8 +68,7 @@ int main(int argc, char* argv[])
     bool update_bg_model = true;
     bool open_bg_model = false;
     int FrameCount = 0;
-    int Thres = 50;
-    if( !cascade.load(cascadeName)){ printf("--(!)Error cascade\n"); return -1; };
+    int Thres = 120;
     if( !cascade2.load(cascadeName2)){ printf("--(!)Error cascade2\n"); return -1; };
     if( !cascade_hand.load(cascadeName3)){ printf("--(!)Error cascade3\n"); return -1; };
 
@@ -97,13 +96,16 @@ int main(int argc, char* argv[])
     camera0 >> img1;
     camera1 >> img2;
 
+    //stereo vision 
     int wsize = 3;
-    int max_disp = 160;
+    int max_disp = 80;
     Mat left_for_matcher, right_for_matcher;
     Ptr<DisparityWLSFilter> wls_filter;
 
     left_for_matcher  = img1.clone();
     right_for_matcher = img2.clone();
+    pyrDown(left_for_matcher, left_for_matcher);
+    pyrDown(right_for_matcher, right_for_matcher);
 
     int cn = img1.channels();
     Ptr<StereoSGBM> left_matcher  = StereoSGBM::create(0, max_disp, wsize);
@@ -114,23 +116,13 @@ int main(int argc, char* argv[])
     wls_filter = createDisparityWLSFilter(left_matcher);
     Ptr<StereoMatcher> right_matcher = createRightMatcher(left_matcher);
 
-    /*left_matcher->setP1(8*cn*left_matcherWinSize*left_matcherWinSize);
-    left_matcher->setP2(32*cn*left_matcherWinSize*left_matcherWinSize);
-    left_matcher->setMinDisparity(0);
-    left_matcher->setNumDisparities(numberOfDisparities);
-    left_matcher->setSpeckleRange(32);
-    left_matcher->setDisp12MaxDiff(1);
-    left_matcher->setMode(alg == STEREO_HH ? StereoSGBM::MODE_HH : StereoSGBM::MODE_SGBM);
-    Ptr<StereoMatcher> right_matcher = createRightMatcher(left_matcher);
-    wls_filter = createDisparityWLSFilter(left_matcher);*/
-
     //fg bg segment
     Ptr<BackgroundSubtractor> bg_model1 =  
             createBackgroundSubtractorMOG2().dynamicCast<BackgroundSubtractor>();
     Mat fgmask1, fgimg1;
 
     namedWindow("disparity", 0);
-    namedWindow("left", 0);        
+    namedWindow("Display", 0);        
     createTrackbar("Threshold", "disparity", &Thres, 256, 0);
     Mat bin_mask;
 
@@ -151,6 +143,12 @@ int main(int argc, char* argv[])
         return 2;
     }
 
+    /*
+     * Faces:  for Tracking
+     * _People: is finded and save in it
+     * TrackMat: current Face in img
+     * TrackMat2: Temp Tracking People in _People
+     */
     vector<Rect> Faces;
     vector<People> _People;
     TrackMat = Mat(img1.size(), CV_8UC1, Scalar(0));
@@ -161,37 +159,30 @@ int main(int argc, char* argv[])
         camera0 >> img1;
         camera1 >> img2;
 
-
-        //cvtColor(img1, img1,CV_BGR2HSV);
-        //cvtColor(img2, img2,CV_BGR2HSV);
-        
-        /*vector<Mat> channels1;
-        vector<Mat> channels2;
-        split(img1, channels1);
-        split(img2, channels2);*/
-
-        Mat left_disp, right_disp, disp8, disp32F;
+        Mat img1down, img2down;
+        Mat left_disp, right_disp, disp8;
         Mat filtered_disp;
-        Mat conf_map = Mat(img1.rows, img1.cols,CV_8U);
-        conf_map = Scalar(255);
+        Mat dispMask, dispTemp;
 
-        //sgbm->compute(channels1[0], channels2[0], disp);
-        left_matcher-> compute(img1, img2, left_disp);
-        right_matcher->compute(img2, img1, right_disp);
+        /*
+         * Tracking and fg & bg segment use down samples
+         */ 
+        pyrDown(img1, img1down);
+        pyrDown(img2, img2down);
 
-        wls_filter->setLambda(800);
+        left_matcher-> compute(img1down, img2down, left_disp);
+        right_matcher->compute(img2down, img1down, right_disp);
+
+        wls_filter->setLambda(8000);
         wls_filter->setSigmaColor(1.5);
-        wls_filter->filter(left_disp, img1, filtered_disp,right_disp);
-        //! [filtering]
-        conf_map = wls_filter->getConfidenceMap();
+        wls_filter->filter(left_disp, img1down, filtered_disp,right_disp);
         Mat filtered_disp_vis;
         getDisparityVis(filtered_disp,filtered_disp_vis, 1.0);
 
         /*fg bg segment*/
         if(open_bg_model)
         {    
-            bg_model1->apply(img1, fgmask1, update_bg_model ? -1 : 0);
-            //bg_model1->apply(img1, fgmask1, update_bg_model ? -1 : 0);
+            bg_model1->apply(img1down, fgmask1, update_bg_model ? -1 : 0);
 
             threshold(fgmask1, fgmask1, 0, 255, THRESH_BINARY + THRESH_OTSU);
             erode(fgmask1, fgmask1, Mat());
@@ -204,35 +195,38 @@ int main(int argc, char* argv[])
                 update_bg_model = false;
         }
 
-        //cvtColor(img1, img1,CV_HSV2BGR);
-        //cvtColor(img2, img2,CV_HSV2BGR);
-        Mat dispMask, dispTemp;
-        //filtered_disp_vis.convertTo(disp8, CV_8U, 255/(numberOfDisparities*16.));
-        inRange(filtered_disp_vis ,Scalar(Thres, Thres, Thres), Scalar(256, 256, 256), dispMask);
+        filtered_disp_vis.convertTo(disp8, CV_8U, 255/(max_disp));
+        inRange(disp8 ,Scalar(Thres, Thres, Thres), Scalar(256, 256, 256), dispMask);
         filtered_disp_vis.copyTo(dispTemp, dispMask);
         
-        Rect ROI(150, 0, dispTemp.cols - 150, dispTemp.rows);
+        /*
+         * ROI is for img which have been down samples
+         * ROI2 is for img which have origin size
+         */ 
+        Rect ROI(80, 0, dispTemp.cols - 80, dispTemp.rows);
+        Rect ROI2(160, 0, img1.cols - 160, img1.rows);
         Mat dispROI = dispTemp(ROI);
-        Mat imgProc = img1(ROI);
+        Mat imgProc = img1(ROI2);
 
-        flip(dispROI, disp8, 1);
+        pyrUp(dispROI, dispROI);
+
+        flip(dispROI, dispROI, 1);
         flip(imgProc, imgProc, 1);
 
         FaceDetectAndTrack(imgProc, Detector, Faces, _People);
-        detectAndDraw(imgProc, disp8, scale, _People);
+        detectAndDraw(imgProc, dispROI, scale, _People);
 
-        imshow("left", imgProc);
-        imshow("disparity", disp8);
+        imshow("Display", imgProc);
+        imshow("disparity", dispROI);
 
+        dispROI.release();
+        imgProc.release();
 
         char c = (char)waitKey(10);
         if( c == 27 )
             break;
         switch(c)
         {
-            case 's':
-                imwrite("bin_mask.png", bin_mask);
-            break;    
             case 'c':
                 update_bg_model = true;
                 FrameCount = 0;
@@ -250,16 +244,17 @@ int main(int argc, char* argv[])
             default:
             ;
         }
+
         left_disp.release();
+        right_disp.release();
         disp8.release();
-        disp32F.release();
-        //dispMask.release();
-        //dispTemp.release();
+        filtered_disp.release();
+        dispTemp.release();
+        dispMask.release();
     }    
     
 
     destroyAllWindows();
-    //_motdetect = ~motdetect();
     camera0.release();
     camera1.release();
 
@@ -280,18 +275,15 @@ void FaceDetectAndTrack(Mat &img,  DetectionBasedTracker &Detector,  vector<Rect
 
         if(lastPeopleCount != Faces.size())
         {
-            if(lastPeopleCount > Faces.size())
+            if(lastPeopleCount > Faces.size()) // lose People
             {
-                //printf("People.size() > Faces.size()\n");
-                
                 for(int s = 0; s< _People.size();)
                 {
                     if(TrackMat.at<unsigned char>(_People[s].locat.y, _People[s].locat.y) == 0)
                     {   
                         _People[s].LostFrame++;
                         _People[s].LostState = true;
-                        //printf("LostFrame %d\n", People[s].LostFrame);
-                        if(_People[s].LostFrame > 3)
+                        if(_People[s].LostFrame > 3) //if one people lose many times, then erase he
                         {    
                             _People.erase(_People.begin() + s);
                             continue;
@@ -302,13 +294,13 @@ void FaceDetectAndTrack(Mat &img,  DetectionBasedTracker &Detector,  vector<Rect
             }
             else if(lastPeopleCount < Faces.size()) //add People
             {
-                //printf("People.size() < Faces.size()\n");
                 int diff = Faces.size() - lastPeopleCount;
                 int s = Faces.size();
 
                 {
                     for(int i = 0; i < diff; i++)
                     {
+                        //this people is new one or have been save in TrackMat2
                         if(TrackMat2.at<unsigned char>(Point(Faces[i+s].x + Faces[i+s].width*0.5, Faces[i+s].y + Faces[i+s].height*0.5)) != 0)
                         {
 
@@ -349,7 +341,6 @@ void FaceDetectAndTrack(Mat &img,  DetectionBasedTracker &Detector,  vector<Rect
         TrackMat.setTo(Scalar(0));
         TrackMat2.setTo(Scalar(0));
         int lostPeople = 0;
-        //printf("before face for loop\n");
         for (size_t i = 0; i < Faces.size(); i++)
         {
 
@@ -366,20 +357,7 @@ void FaceDetectAndTrack(Mat &img,  DetectionBasedTracker &Detector,  vector<Rect
                 _People[i + lostPeople].FaceRect = Faces[i];
             }
         }
-        //printf("after face for loop\n");
-
         lastPeopleCount = _People.size();
-        /*for(int s = 0; s< People.size(); s++)
-        {
-            rectangle(TrackMat2, People[s].FaceRect, Scalar(People[s].Peopleindex), CV_FILLED, 8, 0);
-            if(People[s].LostState == false)
-                lastPeopleCount++;
-        } */   
-
-        /*string text = format("People %d", lastPeopleCount);
-        putText(img, text, Point(10, 20), FONT_HERSHEY_SIMPLEX, 1.0, CV_RGB(0,255,0), 2.0);
-        text = format("PeopleCount %d", PeopleCount);
-        putText(img, text, Point(10, 60), FONT_HERSHEY_SIMPLEX, 1.0, CV_RGB(0,255,0), 2.0);*/
 }
 
 void detectAndDraw( Mat& img, Mat disp, double scale, vector<People> &_People)
@@ -393,7 +371,6 @@ void detectAndDraw( Mat& img, Mat disp, double scale, vector<People> &_People)
         Rect r = _People[s].FaceRect;
         Mat DT, EDT, Skin, dispMask, people, hand_mot = Mat(img.size(), CV_8UC1, Scalar(0));
         int pos_x = 0, pos_y = 0;
-        //printf("r.x:%d, r.y:%d, r.width:%d, r.height:%d \n", r.x, r.y, r.width, r.height);
 
         //ROI setting
         Point tl, tr, bl, br;
@@ -470,7 +447,7 @@ void detectAndDraw( Mat& img, Mat disp, double scale, vector<People> &_People)
 
                 _People[s].lastRHand = body_skeleton->rHand;
                 _People[s].RHandCount = 0;
-                if(body_skeleton->RFingerNum >= 1)
+                if(body_skeleton->RFingerNum >= 2)
                 {
                     if(_People[s].HoldMouse == false)
                     {
@@ -498,7 +475,7 @@ void detectAndDraw( Mat& img, Mat disp, double scale, vector<People> &_People)
                     , Scalar(255), CV_FILLED, 8, 0);
                 _People[s].RHandCount++;
 
-                if(body_skeleton->RFingerNum >= 1)
+                if(body_skeleton->RFingerNum >= 2)
                 {
                     if(_People[s].HoldMouse == false)
                     {

@@ -48,6 +48,8 @@ class BodySkeleton
     Mat SkinSeg;
     Mat disp;
     Mat dispMask;
+
+    double FaceDepth;
 };
 
 void findSkeleton(Mat &bw);

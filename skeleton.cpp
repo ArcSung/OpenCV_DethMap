@@ -27,9 +27,9 @@ void BodySkeleton::init(Mat src, Mat disp8, Mat &disp8Mask, Rect r, Rect RoiRect
 void BodySkeleton::GetFaceDistance(Mat disp8, Mat &dispMask)
 {
    double dispD = 0;
-   double focal = 480*0.23;
+   double focal = dispMask.cols*0.125;
    double between = 6.50; //the distance between 2 camera0
-   int averge;
+   int averge = 0;
 
    for(int i = head.x - 1; i <= head.x + 1; i++)
        for(int j = head.y - 1; j <= head.y + 1; j++)
@@ -44,7 +44,8 @@ void BodySkeleton::GetFaceDistance(Mat disp8, Mat &dispMask)
    if(dispD !=0)
    {
         dispD /= averge;
-        inRange(disp8, Scalar(dispD - 15), Scalar(255), dispMask);
+        FaceDepth = dispD;
+        inRange(disp8, Scalar(dispD - 5), Scalar(255), dispMask);
         fillContours(dispMask);
         FaceDistance = between*focal*16.0/dispD;
    } 
@@ -84,7 +85,7 @@ void BodySkeleton::FindUpperBody(CascadeClassifier& cascade, double scale)
         Size(30, 30) );
     for( vector<Rect>::const_iterator r = upbody.begin(); r != upbody.end(); r++, i++ )
     {
-        if(r->width > FaceRect.width && r->height > FaceRect.height)
+        if(r->width > FaceRect.width && r->height > FaceRect.height && r->width < FaceRect.width*2.5 && r->height < FaceRect.height*2.5)
         {   
             Point center;
             center.x = cvRound((r->x + r->width*0.5)*scale);
@@ -95,14 +96,9 @@ void BodySkeleton::FindUpperBody(CascadeClassifier& cascade, double scale)
                 lShoulder = Point(cvRound(r->x*scale + (r->width-1)*0.1), r->y*scale + (r->height-1)*0.9);
                 rShoulder = Point(cvRound(r->x*scale + (r->width-1)*0.9), r->y*scale + (r->height-1)*0.9);
                 break;
-                /*rectangle( img, cvPoint(cvRound(r->x*scale), cvRound(r->y*scale)),
-                            cvPoint(cvRound((r->x + r->width-1)*scale), cvRound((r->y + r->height-1)*scale)),
-                            Scalar(0, 255, 255), 3, 8, 0);*/
             }
         }    
     }
-    //printf("rShoulder: %d, %d   lShoulder: %d, %d\n", body_skeleton.rShoulder.x, 
-    //        body_skeleton.rShoulder.y, body_skeleton.lShoulder.x, body_skeleton.lShoulder.y);
 }
 
 
@@ -111,7 +107,6 @@ void BodySkeleton::FindArm(int RightOrLeft)
     Mat EDT = FindDistTran(dispMask);
     int fheight = HeadHeight*0.9;
     float Slope = 0;
-    //float refValue = EDT.at<unsigned char>(lShoulder.x, lShoulder.y);
     Point elbow;
     if(RightOrLeft == 1)
         elbow = Point(rShoulder);
@@ -179,7 +174,6 @@ void BodySkeleton::FindArm(int RightOrLeft)
             }    
         }    
 
-        //printf("Slope %f, TempSlope %f\n", Slope, TempSlope);
         if(abs(Slope - TempSlope) > 0.4 && i > 3)
             break;     
 
@@ -210,10 +204,9 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
     int minD = FWidth;
     int maxD = 0;
     int procD = 0;
-    int faceDepth = disp.at<unsigned char>(head.y, head.x);
-    inRange(disp, Scalar(faceDepth+5), Scalar(255), Procimg);
-    Procimg &= SkinSeg;
+    inRange(disp, Scalar(FaceDepth+5), Scalar(FaceDepth+10), Procimg);
     RemoveSmallRegion(Procimg, FWidth*FWidth/4);
+    //imshow("Procimg", Procimg);
     int nLabels = connectedComponents(Procimg, labelImage, 8);
     vector<Point2f> ConnerPoint;
     if(RightOrLeft == 1)
@@ -270,6 +263,7 @@ void BodySkeleton::FindHand(Mat &img, CascadeClassifier& cascade_hand, int Right
         Mat CircleMask = Mat::zeros(mask.size(), CV_8UC1);
         circle(CircleMask, Hand, FWidth*0.4, Scalar(255), CV_FILLED, 1, 0);
         mask &= CircleMask;
+        mask &= SkinSeg;
         //imshow("hand mask", mask);
         
         if(RightOrLeft == 1)
